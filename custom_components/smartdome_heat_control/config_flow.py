@@ -93,6 +93,11 @@ def _window_sensor_selector() -> selector.EntitySelector:
         )
     )
 
+def _optional_default(value: Any) -> Any:
+    """Do not pass unset values to Home Assistant entity/time selectors."""
+    return vol.UNDEFINED if value is None or value == "" else value
+
+
 def _temp_number_selector(
     minimum: float,
     maximum: float,
@@ -317,11 +322,11 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
             {
                 vol.Optional(
                     CONF_MAIN_THERMOSTAT,
-                    default=data.get(CONF_MAIN_THERMOSTAT),
+                    default=_optional_default(data.get(CONF_MAIN_THERMOSTAT)),
                 ): _climate_selector(),
                 vol.Optional(
                     CONF_MAIN_SENSOR,
-                    default=data.get(CONF_MAIN_SENSOR, ""),
+                    default=_optional_default(data.get(CONF_MAIN_SENSOR)),
                 ): _temperature_sensor_selector(),
                 vol.Optional(
                     CONF_BOOST_DELTA,
@@ -388,7 +393,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 ): bool,
                 vol.Optional(
                     CONF_OUTDOOR_SENSOR,
-                    default=data.get(CONF_OUTDOOR_SENSOR, ""),
+                    default=_optional_default(data.get(CONF_OUTDOOR_SENSOR)),
                 ): _temperature_sensor_selector(),
                 vol.Optional(
                     CONF_OUTDOOR_TEMP_CUTOFF_ENABLED,
@@ -505,7 +510,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 ): str,
                 vol.Optional(
                     CONF_ROOM_THERMOSTAT,
-                    default=room.get(CONF_ROOM_THERMOSTAT, ""),
+                    default=_optional_default(room.get(CONF_ROOM_THERMOSTAT)),
                 ): _climate_selector(),
                 vol.Optional(
                     CONF_ROOM_EXTRA_THERMOSTATS,
@@ -516,7 +521,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 ): _extra_climate_selector(),
                 vol.Optional(
                     CONF_ROOM_SENSOR,
-                    default=room.get(CONF_ROOM_SENSOR, ""),
+                    default=_optional_default(room.get(CONF_ROOM_SENSOR)),
                 ): _temperature_sensor_selector(),
                 vol.Optional(
                     CONF_ROOM_TARGET_DAY,
@@ -535,11 +540,11 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 ): _temp_number_selector(5.0, 30.0, 0.5),
                 vol.Optional(
                     CONF_ROOM_DAY_START,
-                    default=room.get(CONF_ROOM_DAY_START, ""),
+                    default=_optional_default(room.get(CONF_ROOM_DAY_START)),
                 ): selector.TimeSelector(),
                 vol.Optional(
                     CONF_ROOM_NIGHT_START,
-                    default=room.get(CONF_ROOM_NIGHT_START, ""),
+                    default=_optional_default(room.get(CONF_ROOM_NIGHT_START)),
                 ): selector.TimeSelector(),
                 vol.Optional(
                     CONF_ROOM_ENABLED,
@@ -555,7 +560,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional("delete_room", default=False): bool,
                 vol.Optional(
                     CONF_ROOM_WINDOW_SENSOR,
-                    default=room.get(CONF_ROOM_WINDOW_SENSOR, ""),
+                    default=_optional_default(room.get(CONF_ROOM_WINDOW_SENSOR)),
                 ): _window_sensor_selector(),
             }
         )
