@@ -77,7 +77,11 @@ def _best_entity(
     prefer_available: bool = True,
 ) -> str | None:
     candidates = [
-        entity for entity in entities if entity.domain == domain and not entity.disabled_by
+        entity
+        for entity in entities
+        if entity.domain == domain
+        and not entity.disabled_by
+        and entity.platform != DOMAIN
     ]
     if not candidates:
         return None
@@ -110,8 +114,14 @@ def _sensor_score(hass: HomeAssistant, entity: Any) -> tuple[int, int]:
 
 
 def _best_sensor(hass: HomeAssistant, entities: list[Any]) -> str | None:
+    # Never autodiscover arbitrary numeric sensors (e.g. printer or battery).
     candidates = [
-        entity for entity in entities if entity.domain == SENSOR_DOMAIN and not entity.disabled_by
+        entity for entity in entities
+        if entity.domain == SENSOR_DOMAIN
+        and not entity.disabled_by
+        and (state := hass.states.get(entity.entity_id)) is not None
+        and state.attributes.get("device_class") == "temperature"
+        and state.attributes.get("unit_of_measurement") in ("°C", "°F")
     ]
     if not candidates:
         return None
@@ -127,9 +137,6 @@ def _best_sensor(hass: HomeAssistant, entities: list[Any]) -> str | None:
         return None
 
     if top_state.attributes.get("device_class") == "temperature":
-        return top.entity_id
-
-    if _safe_float(top_state.state) is not None:
         return top.entity_id
 
     return None
@@ -171,8 +178,19 @@ async def async_discover_rooms(hass: HomeAssistant) -> dict[str, dict[str, Any]]
     return rooms
 
 
+def _is_own_entity(hass: HomeAssistant, entity_id: str) -> bool:
+    """True, wenn die Entity von dieser Integration selbst angelegt wurde."""
+    entry = async_get_entity_registry(hass).async_get(entity_id)
+    return entry is not None and entry.platform == DOMAIN
+
+
 async def async_get_all_thermostats(hass: HomeAssistant) -> list[str]:
-    return sorted(hass.states.async_entity_ids(CLIMATE_DOMAIN))
+    # Eigene Raum-Climate-Entities nicht als Heizkörperventil anbieten.
+    return sorted(
+        entity_id
+        for entity_id in hass.states.async_entity_ids(CLIMATE_DOMAIN)
+        if not _is_own_entity(hass, entity_id)
+    )
 
 
 async def async_get_all_sensors(hass: HomeAssistant) -> list[str]:

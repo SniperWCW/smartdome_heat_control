@@ -1,5 +1,40 @@
 # Changelog
 
+## [3.6.1] – 2026-10-15
+
+### 🔧 Reliability-Update und stabiler Wochenplan-Editor
+
+- Der Wochenplan-Editor baut Zeit- und Temperaturfelder während der Eingabe nicht mehr neu auf. Werte werden erst bei `change`/`blur` übernommen; Sortierung und Re-Render erfolgen nur noch bei strukturellen Aktionen oder beim Speichern.
+- Die Zeitvalidierung lehnt ungültige Werte außerhalb von `00:00` bis `23:59` zuverlässig ab.
+- Außentemperatur-Sperre mit konfigurierbarer Hysterese und minimaler Raumtemperatur robuster gemacht.
+- Temperaturquellen und Bosch-Sollwerte werden defensiver ausgewertet und abgeglichen.
+- Raumstatus enthält einen expliziten Regelgrund für eine bessere Diagnose.
+- Änderungen am physischen Thermostat oder an der Raum-Climate-Entität können als zeitlich begrenzter Komfort-Override übernommen werden; Status und Restlaufzeit werden angezeigt.
+
+---
+
+**EN:** Reliability update with safer temperature/target handling, configurable outdoor-cutoff hysteresis, diagnostic control reasons and timed comfort overrides. The weekly-schedule editor now commits fields on `change`/`blur` without rebuilding the DOM while typing; sorting is deferred to structural actions or save.
+
+---
+
+## [3.6.0] – 2026-10-13
+
+### ✨ Feat: Climate-Entity pro Raum (Soll/Ist wie ein Thermostat)
+
+Jeder Raum bekommt eine `climate`-Entität („<Raum> – Heizung"). Sie zeigt die aktuell gültige Solltemperatur und die Ist-Temperatur an und funktioniert in der Standard-Thermostat-Karte von Home Assistant. `hvac_action` zeigt `heating`/`idle`/`off`, `hvac_mode` `heat`/`off` (schaltet den Raum aktiv/inaktiv).
+
+Ändert man die Solltemperatur dort, wird je nach aktuellem Zustand die **Away-**, **Nacht-** oder **Tag-Temperatur** des Raums angepasst und gespeichert. Bei aktivem Urlaubsmodus oder Wochenplan-Eintrag ist der Sollwert vorgegeben und wird mit einer Meldung abgelehnt.
+
+Die eigenen Climate-Entities werden in den Auswahllisten für Heizkörperventile und bei der Raum-Erkennung ausgeblendet, damit sie nicht versehentlich als Thermostat gewählt werden.
+
+**Hinweis:** Im Heizmodus *Energy* steht das Heizkörperventil im Leerlauf bewusst auf der Minimaltemperatur (meist 5 °C), solange der Raum warm genug ist. Das ist kein Fehler – die Soll-Temperatur des Raums sieht man jetzt in der neuen Climate-Entity.
+
+---
+
+**EN:** Each room now gets a `climate` entity showing target/current temperature like a thermostat; changing the target writes the active away/night/day setpoint. Own climate entities are hidden from thermostat pickers. Rejected while vacation mode or a weekly-schedule entry sets the target.
+
+---
+
 ## [3.5.2] – 2026-10-12
 
 ### 🔧 Fix: Wochenschema-Eintrag wurde auf andere Räume übertragen

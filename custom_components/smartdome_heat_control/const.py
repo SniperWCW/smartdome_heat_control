@@ -9,7 +9,7 @@ DATA_ENABLED = "enabled"
 # damit Entities (z.B. sensor.py) sich ohne Polling aktualisieren können.
 SIGNAL_ROOM_STATE_UPDATED = f"{DOMAIN}_room_state_updated"
 
-PLATFORMS: list[str] = ["switch", "number", "select", "sensor"]
+PLATFORMS: list[str] = ["switch", "number", "select", "sensor", "climate"]
 
 # Services
 SERVICE_UPDATE_CONFIG = "update_config"
@@ -149,6 +149,10 @@ CONF_OUTDOOR_TEMP_CUTOFF_ENABLED = "outdoor_temp_cutoff_enabled"
 CONF_OUTDOOR_TEMP_CUTOFF = "outdoor_temp_cutoff"
 DEFAULT_OUTDOOR_TEMP_CUTOFF_ENABLED = False
 DEFAULT_OUTDOOR_TEMP_CUTOFF = 15.0
+CONF_OUTDOOR_CUTOFF_HYSTERESIS = "outdoor_cutoff_hysteresis"
+DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS = 2.0
+CONF_OUTDOOR_MIN_ROOM_TEMPERATURE = "outdoor_min_room_temperature"
+DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE = 19.0
 
 # Feature #54 – Globale Temperatureinstellungen
 CONF_GLOBAL_TARGET_DAY = "global_target_day"
