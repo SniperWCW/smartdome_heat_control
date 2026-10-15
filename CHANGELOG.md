@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.6.2] – 2026-10-15
+
+### 🐛 Fix: Fensterkontakte in Integration und Seitenpanel einheitlich
+
+- Fensterkontakte werden jetzt überall als Liste `window_sensors` gespeichert. Der Dialog *Integration → Räume bearbeiten/hinzufügen* bietet dafür eine Mehrfachauswahl und zeigt dieselben Kontakte wie das Seitenpanel.
+- Bisher schrieb der Dialog nur das alte Einzelfeld `window_sensor`, das Panel und Regelung nicht mehr auswerten. Kontakte, die im Panel gesetzt wurden, fehlten deshalb im Dialog; im Dialog gesetzte Kontakte wurden ignoriert.
+- Migration: Ein noch im alten Feld stehender Kontakt wird beim Laden in die Liste übernommen, das Altfeld danach geleert.
+- Dienst `add_room` akzeptiert `window_sensors` (Liste); `window_sensor` funktioniert weiterhin.
+
+---
+
+**EN:** Window sensors are now stored as the `window_sensors` list everywhere. The integration's room dialog uses a multi-select and shows the same sensors as the side panel; the legacy `window_sensor` field is migrated on load.
+
+---
+
 ## [3.6.1] – 2026-10-15
 
 ### 🔧 Reliability-Update und stabiler Wochenplan-Editor
