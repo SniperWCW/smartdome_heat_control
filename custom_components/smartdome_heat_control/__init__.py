@@ -186,7 +186,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.debug("[Smartdome Diagnose] PERSIST_LEARNED: Keine Änderungen, Skip.")
             return
 
-        _LOGGER.warning(
+        _LOGGER.debug(
             "[Smartdome Diagnose] PERSIST_LEARNED: Merge lernbarer Werte in Config Entry. "
             "Geänderte Räume: %s",
             [rid for rid in learned_rooms if rid in current_rooms],
@@ -454,7 +454,7 @@ def _async_register_ws_save_config(hass: HomeAssistant) -> None:
         new_cfg = _normalize_config(dict(msg["config"]))
 
         rooms = new_cfg.get(CONF_ROOMS, {})
-        _LOGGER.warning(
+        _LOGGER.debug(
             "[Smartdome Diagnose] WS_SAVE: Konfiguration wird gespeichert. "
             "Räume: %s | heating_mode: %s | enabled: %s",
             {rid: r.get("label", rid) for rid, r in rooms.items()},
@@ -486,7 +486,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             _LOGGER.warning("Kein Config Entry für update_config gefunden")
             return
 
-        _LOGGER.warning("[Smartdome Diagnose] SERVICE_UPDATE_CONFIG aufgerufen. Patch-Keys: %s", list(call.data.get("config", {}).keys()))
+        _LOGGER.debug("[Smartdome Diagnose] SERVICE_UPDATE_CONFIG aufgerufen. Patch-Keys: %s", list(call.data.get("config", {}).keys()))
 
         data = hass.data[DOMAIN][target_entry.entry_id]
         current_cfg = dict(data["config"])
