@@ -270,7 +270,7 @@ class SmartHeatingController:
     def update_config(self, config: dict[str, Any]) -> None:
         """Config aktualisieren."""
         rooms = config.get("rooms", {})
-        _LOGGER.warning(
+        _LOGGER.debug(
             "[Smartdome Diagnose] UPDATE_CONFIG: Controller erhält neue Config. "
             "Räume: %s | heating_mode: %s | enabled: %s",
             {rid: r.get("label", rid) for rid, r in rooms.items()},
@@ -374,7 +374,7 @@ class SmartHeatingController:
         """Gelernte Werte in den Config Entry schreiben."""
         if self._persist_callback is not None:
             rooms = self.config.get("rooms", {})
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "[Smartdome Diagnose] PERSIST_LEARNED_VALUES: Erstelle Persist-Task. "
                 "Räume: %s | heating_mode: %s | enabled: %s",
                 {rid: r.get("label", rid) for rid, r in rooms.items()},
