@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### ✨ Wochenplan-Editor: Tag auf andere Tage kopieren
+
+- Neuer Button *Auf andere Tage kopieren* im Wochenplan-Dialog der Seitenleiste. Der aktuell gewählte Tag (z. B. Montag) wird auf beliebig viele andere Wochentage übernommen (z. B. Dienstag bis Freitag).
+- Die Kopie landet im Entwurf und wird, wie alle anderen Änderungen im Dialog, erst mit *Speichern* übernommen.
+
+---
+
+**EN:** New *Copy to other days* button in the weekly schedule dialog: copy the selected day's time blocks to any other weekdays. Applied to the draft, saved with *Save*.
+
+---
+
 ## [3.6.2] – 2026-10-15
 
 ### 🐛 Fix: Fensterkontakte in Integration und Seitenpanel einheitlich
