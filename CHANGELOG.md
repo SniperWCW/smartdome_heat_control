@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [3.6.3] – 2026-10-22
 
 ### ✨ Wochenplan-Editor: Tag auf andere Tage kopieren
 
