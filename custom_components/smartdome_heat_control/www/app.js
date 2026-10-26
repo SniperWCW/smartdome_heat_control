@@ -159,6 +159,8 @@ const I18N = {
     room_thermostat_offset: "Thermostat calibration offset (°C)",
     room_away_temperature: "Away temperature (°C)",
     room_away_mode_enabled: "Away mode active for this room",
+    room_comfort_override_enabled: "Timed comfort override (60 min): raising the setpoint on the radiator thermostat or room thermostat card heats temporarily without changing schedules",
+    room_target_reconcile_enabled: "Setpoint reconciliation: re-send the setpoint if the valve did not accept it (limited retries, respects manual lowering)",
     room_day_start: "Day start",
     room_night_start: "Night start",
     room_manual: "Manually created",
@@ -375,6 +377,8 @@ const I18N = {
     room_thermostat_offset: "Thermostat-Kalibrierungsoffset (°C)",
     room_away_temperature: "Away-Temperatur (°C)",
     room_away_mode_enabled: "Away-Modus für diesen Raum aktiv",
+    room_comfort_override_enabled: "Zeitlich begrenzter Komfort-Override (60 min): Sollwert am Heizkörperthermostat oder an der Raum-Thermostatkarte anheben heizt vorübergehend, ohne Pläne zu ändern",
+    room_target_reconcile_enabled: "Sollwert-Abgleich: Sollwert erneut senden, wenn das Ventil ihn nicht übernommen hat (begrenzte Wiederholungen, manuelle Absenkung wird respektiert)",
     room_day_start: "Tag-Start",
     room_night_start: "Nacht-Start",
     room_manual: "Manuell angelegt",
@@ -846,6 +850,8 @@ function normalizeRoom(roomId, room) {
     target_night: normalizeNumber(room?.target_night, 18.0),
     away_temperature: normalizeNumber(room?.away_temperature, 17.0),
     room_away_enabled: room?.room_away_enabled === true,
+    room_comfort_override_enabled: room?.room_comfort_override_enabled === true,
+    room_target_reconcile_enabled: room?.room_target_reconcile_enabled === true,
     weekly_schedule: normalizeWeeklySchedule(room?.weekly_schedule),
     day_start: normalizeTime(room?.day_start, ""),
     night_start: normalizeTime(room?.night_start, ""),
@@ -2152,6 +2158,17 @@ function createRoomCard(roomId, room) {
         </div>
 
         <div class="field">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-weight:normal;">
+            <input type="checkbox" class="room-comfort-override-enabled" ${room.room_comfort_override_enabled ? "checked" : ""} />
+            <span>${escapeHtml(t("room_comfort_override_enabled"))}</span>
+          </label>
+          <label style="display:flex;align-items:flex-start;gap:8px;font-weight:normal;margin-top:6px;">
+            <input type="checkbox" class="room-target-reconcile-enabled" ${room.room_target_reconcile_enabled ? "checked" : ""} />
+            <span>${escapeHtml(t("room_target_reconcile_enabled"))}</span>
+          </label>
+        </div>
+
+        <div class="field">
           <label>${escapeHtml(t("room_day_start"))}</label>
           <input class="room-day-start" type="time" value="${escapeHtml(
             room.day_start || ""
@@ -2636,6 +2653,10 @@ function collectFormState() {
       target_night: node.querySelector(".room-target-night").value,
       away_temperature: node.querySelector(".room-away-temperature").value,
       room_away_enabled: node.querySelector(".room-away-enabled")?.checked === true,
+      room_comfort_override_enabled:
+        node.querySelector(".room-comfort-override-enabled")?.checked === true,
+      room_target_reconcile_enabled:
+        node.querySelector(".room-target-reconcile-enabled")?.checked === true,
       weekly_schedule: existingRoom.weekly_schedule || DEFAULT_WEEKLY_SCHEDULE,
       day_start: node.querySelector(".room-day-start").value || "",
       night_start: node.querySelector(".room-night-start").value || "",
@@ -2707,6 +2728,8 @@ function addRoom() {
     target_night: normalizeNumber(els.globalTargetNight?.value, DEFAULTS.global_target_night),
     away_temperature: normalizeNumber(els.globalAwayTemperature?.value, DEFAULTS.global_away_temperature),
     room_away_enabled: false,
+    room_comfort_override_enabled: false,
+    room_target_reconcile_enabled: false,
     weekly_schedule: structuredClone(DEFAULT_WEEKLY_SCHEDULE),
     day_start: "",
     night_start: "",

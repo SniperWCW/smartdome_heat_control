@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.9.1] – Test-Branch (Fork SniperWCW)
+
+Zwei **pro Raum zuschaltbare** Funktionen (beide standardmäßig **aus**, bestehendes Verhalten bleibt unverändert). Aufbauend auf V3.9.0 und den bei #78 nicht übernommenen Teilen, mit den dort genannten Einwänden berücksichtigt.
+
+### ⏱️ Komfort-Override (Option pro Raum)
+
+- Wird der Sollwert am Heizkörperthermostat um ≥ 0,5 °C **über den geplanten Wert** angehoben, oder an der Climate-Entity des Raums gesetzt, gilt das **60 Minuten** als Komfortanforderung. Tag/Nacht-Werte, Wochenplan und Urlaubsmodus werden dabei **nicht verändert**.
+- Mit aktivierter Option speichert die Climate-Entity den Sollwert nicht mehr, sondern setzt den zeitlich begrenzten Override (auch bei aktivem Wochenplan). Ohne Option bleibt das Verhalten aus 3.6.0 unverändert.
+- Gegen Fehlauslöser: eigene Befehle (auch verzögert bestätigt) zählen nie; keine Erkennung bei offenem Fenster, Fensterpause und 10 min danach (Ventil stellt Sollwert selbst wieder her); 3 min Ruhezeit nach Speichern im Panel; nicht bei Sensorausfall, Urlaubsmodus oder wenn der Raum die Zieltemperatur bereits erreicht hat.
+- Der Override umgeht bewusst die Außensperre samt Mindesttemperatur und endet bei Ablauf, Fenster-offen, Urlaubsmodus oder Deaktivierung der Option.
+- Neue Statusattribute: `comfort_override_active`, `comfort_override_target`, `comfort_override_remaining_seconds`; `control_reason: comfort_override`.
+
+### 🎯 Sollwert-Abgleich (Option pro Raum)
+
+- Prüft, ob das Thermostat den gesendeten Sollwert übernommen hat, und sendet bei Abweichung ≥ 0,5 °C **höchstens zweimal** (Abstand ≥ 10 min) erneut.
+- **Begrenzende Ventile** (z. B. max. 28 °C) gelten danach als begrenzt: kein dauerndes Wiedersenden, keine Warnungen im Log (nur ein Info-Eintrag), bis sich der Zielwert ändert.
+- **Manuelle Absenkungen** am Ventil werden erkannt und bis zur nächsten Änderung des Zielwerts nicht überschrieben.
+
+---
+
 ## [3.9.0] – 2026-10-26
 
 ### ✨ Außentemperatur-Sperre: Mindest-Raumtemperatur und Hysterese (aus #76/#78, danke @SniperWCW)
