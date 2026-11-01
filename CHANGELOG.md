@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.9.2] – Test-Branch (Fork SniperWCW)
+
+### 🐛 Fix: Fensterkontakte in Integration und Seitenpanel einheitlich
+
+- Fensterkontakte werden überall als Liste `window_sensors` gespeichert. Der Dialog *Integration → Räume bearbeiten/hinzufügen* bietet dafür eine Mehrfachauswahl und zeigt dieselben Kontakte wie das Seitenpanel. Man muss sie nicht mehr an zwei Stellen pflegen.
+- Bisher schrieb der Dialog nur das alte Einzelfeld `window_sensor`, das Panel und Regelung nicht auswerten: im Panel gesetzte Kontakte fehlten im Dialog, im Dialog gesetzte wurden ignoriert.
+- Migration: Ein noch im alten Feld stehender Kontakt wird beim Laden in die Liste übernommen, das Altfeld danach geleert.
+- Dienst `add_room` akzeptiert `window_sensors` (Liste); `window_sensor` funktioniert weiterhin.
+
+---
+
 ## [3.9.1] – Test-Branch (Fork SniperWCW)
 
 Zwei **pro Raum zuschaltbare** Funktionen (beide standardmäßig **aus**, bestehendes Verhalten bleibt unverändert). Aufbauend auf V3.9.0 und den bei #78 nicht übernommenen Teilen, mit den dort genannten Einwänden berücksichtigt.
