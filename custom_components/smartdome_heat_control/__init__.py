@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import uuid
+from datetime import timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -12,10 +13,16 @@ from homeassistant.components import frontend, websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
+from .stats import HeatingStats, build_report, format_report, to_csv
 from .const import (
+    SERVICE_HEATING_REPORT,
+    STATS_STORAGE_KEY,
+    STATS_STORAGE_VERSION,
     CONF_AWAY_ENABLED,
     CONF_CIRCUIT_CONTROL_TYPE,
     CONF_CIRCUIT_ENABLED,
@@ -212,6 +219,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     controller.set_state_callback(_on_room_states_updated)
 
+    # Heizbericht: Tageswerte laden, alle 5 Minuten verzögert speichern
+    stats_store: Store = Store(hass, STATS_STORAGE_VERSION, STATS_STORAGE_KEY)
+    try:
+        stats = HeatingStats(await stats_store.async_load())
+    except Exception:
+        _LOGGER.warning("Heizbericht-Daten nicht lesbar, starte leer", exc_info=True)
+        stats = HeatingStats()
+    stats.prune(dt_util.now().date())
+
+    @callback
+    def _stats_changed() -> None:
+        stats_store.async_delay_save(stats.to_dict, 300)
+
+    controller.set_stats(stats, _stats_changed)
+    domain_data["stats_store"] = stats_store
+
     await _async_register_frontend(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -254,6 +277,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     controller = data.get(DATA_CONTROLLER)
     if controller is not None:
         await controller.async_stop()
+        stats_store = data.get("stats_store")
+        if stats_store is not None:
+            try:
+                await stats_store.async_save(controller.stats.to_dict())
+            except Exception:
+                _LOGGER.debug("Heizbericht konnte nicht gespeichert werden", exc_info=True)
 
     remaining_entries = [
         key for key in hass.data.get(DOMAIN, {}) if not key.startswith("_")
@@ -723,6 +752,59 @@ def _async_register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({vol.Required("room_id"): str}),
     )
     hass.services.async_register(DOMAIN, SERVICE_RELOAD, handle_reload)
+
+    async def handle_heating_report(call: ServiceCall) -> dict[str, Any]:
+        target_entry = _get_single_entry(hass)
+        if target_entry is None:
+            return {"error": "no_entry"}
+        data = hass.data[DOMAIN][target_entry.entry_id]
+        controller = data[DATA_CONTROLLER]
+        rooms = data["config"].get(CONF_ROOMS, {})
+        labels = {
+            rid: str(r.get("label", rid))
+            for rid, r in rooms.items()
+            if isinstance(r, dict)
+        }
+        today = dt_util.now().date()
+        period = call.data.get("period", "week")
+        days = 30 if period == "month" else 7
+        end = today - timedelta(days=1) if call.data.get("completed", True) else today
+        start = end - timedelta(days=days - 1)
+        prev_end = start - timedelta(days=1)
+        prev_start = prev_end - timedelta(days=days - 1)
+        report = build_report(
+            controller.stats, labels, start, end, prev_start, prev_end
+        )
+        title = "Heizbericht Monat" if period == "month" else "Heizbericht Woche"
+        text = format_report(report, title)
+        report["text"] = text
+        if call.data.get("csv"):
+            report["csv"] = to_csv(report)
+        notify = call.data.get("notify_service")
+        if notify:
+            domain, _, name = str(notify).partition(".")
+            if domain == "notify" and name:
+                await hass.services.async_call(
+                    "notify", name, {"title": title, "message": text}, blocking=False
+                )
+            else:
+                _LOGGER.warning("notify_service muss die Form notify.<name> haben: %s", notify)
+        return report
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_HEATING_REPORT,
+        handle_heating_report,
+        schema=vol.Schema(
+            {
+                vol.Optional("period", default="week"): vol.In(["week", "month"]),
+                vol.Optional("completed", default=True): cv.boolean,
+                vol.Optional("csv", default=False): cv.boolean,
+                vol.Optional("notify_service"): cv.string,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
 
     hass.data[DOMAIN]["_services_registered"] = True
 

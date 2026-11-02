@@ -17,6 +17,8 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.util import dt as dt_util
 
+from .stats import HeatingStats, RoomSample
+
 from .const import (
     ADAPTIVE_BUCKET_MEDIUM_MAX_SECS,
     ADAPTIVE_BUCKET_SHORT_MAX_SECS,
@@ -230,6 +232,11 @@ class SmartHeatingController:
         # Sollwert-Abgleich pro Thermostat (nur Räume mit aktivierter Option)
         self._reconcile: dict[str, dict[str, Any]] = {}
 
+        # Heizbericht (Tageswerte pro Raum); wird von __init__ geladen/gespeichert
+        self.stats = HeatingStats()
+        self._stats_changed_cb: Any = None
+        self._stats_last_ts: float | None = None
+
         self._apply_config_defaults()
 
     async def async_start(self) -> None:
@@ -436,6 +443,57 @@ class SmartHeatingController:
     def set_state_callback(self, callback: Any) -> None:
         """Callback setzen der nach jeder Auswertung den Raumzustand publiziert."""
         self._state_callback = callback
+
+    def set_stats(self, stats: HeatingStats, changed_cb: Any) -> None:
+        """Heizbericht-Daten und Speicher-Callback setzen."""
+        self.stats = stats
+        self._stats_changed_cb = changed_cb
+
+    def _normal_target_for_room(self, room: dict[str, Any]) -> float:
+        """Solltemperatur ohne Abwesenheit/Urlaub (Wochenplan bzw. Tag/Nacht)."""
+        scheduled = self._scheduled_target_for_room(room)
+        if scheduled is not None:
+            return scheduled
+        return self._base_target_for_room(room)
+
+    def _record_stats(self) -> None:
+        """Aktuellen Raumzustand in den Heizbericht aufsummieren (jede Minute)."""
+        if not self._enabled:
+            self._stats_last_ts = None
+            return
+        now = dt_util.now()
+        now_ts = now.timestamp()
+        last = self._stats_last_ts
+        self._stats_last_ts = now_ts
+        dt = 60.0 if last is None else min(max(now_ts - last, 0.0), 120.0)
+        if dt <= 0:
+            return
+
+        vacation = bool(self.config.get(CONF_VACATION_ENABLED, DEFAULT_VACATION_ENABLED))
+        for room_id, room in self._active_rooms().items():
+            st = self._last_room_states.get(room_id)
+            if not st:
+                continue
+            try:
+                self.stats.add(
+                    now.date(),
+                    room_id,
+                    RoomSample(
+                        state=str(st.get("state", ROOM_STATE_IDLE)),
+                        target=st.get("target"),
+                        normal_target=self._normal_target_for_room(room),
+                        actual=st.get("actual"),
+                        window_pause=bool(st.get("pause_active")),
+                        setback=vacation or self._is_room_away_active(room),
+                        override=st.get("comfort_target") is not None,
+                        sensor_fault=room_id in self._room_sensor_fault,
+                    ),
+                    dt,
+                )
+            except Exception:  # Statistik darf die Regelung nie stören
+                _LOGGER.debug("Heizbericht: Raum %s übersprungen", room_id, exc_info=True)
+        if self._stats_changed_cb is not None:
+            self._stats_changed_cb()
 
     def _persist_learned_values(self) -> None:
         """Gelernte Werte in den Config Entry schreiben."""
@@ -2269,3 +2327,4 @@ class SmartHeatingController:
     def _on_minute_tick(self, now) -> None:
         """Zyklische Auswertung jede Minute."""
         self._evaluate()
+        self._record_stats()

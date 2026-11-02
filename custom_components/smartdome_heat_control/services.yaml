@@ -97,3 +97,38 @@ remove_room:
 reload:
   name: Reload rooms
   description: Rediscover rooms and refresh the Smartdome Heat Control configuration.
+
+heating_report:
+  name: Heating report
+  description: >-
+    Build a heating report (heating hours per room, window pauses, setback,
+    time on target). Returns the report as response data and can send it as a
+    notification.
+  fields:
+    period:
+      name: Period
+      description: "week = last 7 days, month = last 30 days."
+      default: week
+      selector:
+        select:
+          options:
+            - week
+            - month
+    completed:
+      name: Completed days only
+      description: Exclude today (default), so weekly pushes compare full days.
+      default: true
+      selector:
+        boolean:
+    csv:
+      name: Include CSV
+      description: Add a semicolon-separated CSV to the response.
+      default: false
+      selector:
+        boolean:
+    notify_service:
+      name: Notify service
+      description: Optional, e.g. notify.mobile_app_iphone.
+      example: notify.mobile_app_iphone
+      selector:
+        text:

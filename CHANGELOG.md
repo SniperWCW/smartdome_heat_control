@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.10.0] – 2026-11-02
+
+### ✨ Neu: Heizbericht
+
+- Pro Raum und Tag werden Heizzeit, Nachheizphase, Fenster-Pause, Absenkung (Abwesenheit/Urlaub), Komfort-Override, Zeit am Ziel (±1 K) und Mitteltemperatur erfasst. Die Werte liegen im HA-Speicher (`.storage/smartdome_heat_control.stats`), nicht in der Datenbank, und werden 400 Tage gehalten.
+- Neue Sensoren: **„<Raum> – Heizzeit 7 Tage"** (Attribute: heute, 30 Tage, Heizanteil, Fenster-Pause, Absenkung, Zeit am Ziel, Ø Temperatur) und **„Heizbericht 7 Tage"** (gesamt, Rangliste der Räume, geschätzte Ersparnis).
+- Neuer Dienst `smartdome_heat_control.heating_report` (`period: week|month`, optional `csv`, optional `notify_service`). Liefert den Bericht als Antwort und kann ihn als Push senden, z. B. sonntags per Automation.
+- Ersparnis durch Absenkung ist ein Richtwert (ca. 6 % Heizenergie je Kelvin), keine Messung.
+- Die Statistik ist rein lesend und beeinflusst die Regelung nicht. Fehler dabei werden abgefangen.
+- Idee und Aufbau angelehnt an Goldi5/Raumklima-2 (MIT).
+
 ## [3.9.2] – Test-Branch (Fork SniperWCW)
 
 ### 🐛 Fix: Fensterkontakte in Integration und Seitenpanel einheitlich

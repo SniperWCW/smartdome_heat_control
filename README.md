@@ -21,6 +21,34 @@ It works in two ways — with or without a central heating system:
 
 ---
 
+---
+
+### Heizbericht (V3.10)
+
+Smartdome zeichnet pro Raum auf, wie lange geheizt wurde, wie lange das Fenster die Heizung pausiert hat, wie lange abgesenkt war und wie viel Zeit der Raum am Ziel (±1 K) lag.
+
+- Sensoren je Raum: `Heizzeit 7 Tage` (mit Attributen für heute und 30 Tage) sowie ein Gesamtsensor `Heizbericht 7 Tage` mit Rangliste.
+- Dienst `smartdome_heat_control.heating_report` für Wochen- oder Monatsbericht mit Vorperioden-Vergleich, optional als CSV oder Push.
+
+Beispiel: Wochenbericht jeden Sonntag um 18 Uhr
+
+```yaml
+automation:
+  - alias: Heizbericht Woche
+    trigger:
+      - platform: time
+        at: "18:00:00"
+    condition:
+      - condition: time
+        weekday: [sun]
+    action:
+      - action: smartdome_heat_control.heating_report
+        data:
+          period: week
+          notify_service: notify.mobile_app_iphone
+```
+
+
 # How It Works
 
 Each room is monitored individually using a temperature sensor and a radiator thermostat.

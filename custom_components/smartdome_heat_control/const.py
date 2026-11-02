@@ -16,6 +16,10 @@ SERVICE_UPDATE_CONFIG = "update_config"
 SERVICE_ADD_ROOM = "add_room"
 SERVICE_REMOVE_ROOM = "remove_room"
 SERVICE_RELOAD = "reload"
+SERVICE_HEATING_REPORT = "heating_report"
+
+STATS_STORAGE_KEY = f"{DOMAIN}.stats"
+STATS_STORAGE_VERSION = 1
 
 # Globale Config-Keys
 CONF_MAIN_THERMOSTAT = "main_thermostat"
