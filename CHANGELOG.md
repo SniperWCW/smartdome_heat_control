@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.10.1] – Fork SniperWCW (Sammelstand)
+
+Lokaler Sammelstand: V3.10.0 (Heizbericht) plus Wochenplan-Editor *Tag auf andere Tage kopieren* (aus `feature/copy-day-schedule`). Die Upstream-PRs bleiben einzeln.
+
+### ✨ Wochenplan-Editor: Tag auf andere Tage kopieren
+
+- Neuer Button *Auf andere Tage kopieren* im Wochenplan-Dialog der Seitenleiste, neben *Auf andere Räume kopieren*. Der aktuell gewählte Tag (z. B. Montag) wird auf beliebig viele andere Wochentage übernommen (z. B. Dienstag bis Freitag).
+- Die Kopie landet im Entwurf und wird, wie alle anderen Änderungen im Dialog, erst mit *Speichern* übernommen. Die Regelung ist nicht betroffen.
+
+**EN:** New *Copy to other days* button in the weekly schedule dialog.
+
+---
+
 ## [3.10.0] – 2026-11-02
 
 ### ✨ Neu: Heizbericht
