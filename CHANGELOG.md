@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.10.2] – Fork SniperWCW (Sammelstand)
+
+Übernahme zweier Upstream-Änderungen (19DMO89, V3.9.1 und V3.10.1) in den lokalen Sammelstand.
+
+### 🐛 Klimaanlage beim Heizen ausschalten statt herunterdrehen (Upstream V3.9.1)
+
+- Die Klimaanlage folgt dem Raumzustand: an nur im Zustand HEATING, sonst aus. Beim Einschalten wird der Sollwert erneut gesendet. Räume ohne Raumsensor regeln weiter über die Klimaanlage selbst.
+
+### 🔧 Raum-Dialog: fehlende Beschriftungen (Upstream V3.10.1)
+
+- *Weitere Heizkörperventile*, *Away-Modus für diesen Raum aktiv* und *Sollwert-Abgleich* haben Beschriftungen statt technischer Feldnamen (strings.json, de, en).
+
+---
+
 ## [3.10.1] – Fork SniperWCW (Sammelstand)
 
 Lokaler Sammelstand: V3.10.0 (Heizbericht) plus Wochenplan-Editor *Tag auf andere Tage kopieren* (aus `feature/copy-day-schedule`). Die Upstream-PRs bleiben einzeln.
