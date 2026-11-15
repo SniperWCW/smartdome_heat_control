@@ -235,6 +235,8 @@ const I18N = {
 
     schedule_copy_rooms: "Copy to other rooms",
     schedule_copy_title: "Copy weekly schedule",
+    schedule_copy_days: "Copy to other days",
+    schedule_copy_days_title: "Copy day schedule",
     schedule_copy_apply: "Apply",
     schedule_copy_no_rooms: "No other rooms available.",
 
@@ -516,6 +518,8 @@ const I18N = {
 
     schedule_copy_rooms: "Auf andere Räume kopieren",
     schedule_copy_title: "Wochenschema kopieren",
+    schedule_copy_days: "Auf andere Tage kopieren",
+    schedule_copy_days_title: "Tagesschema kopieren",
     schedule_copy_apply: "Übernehmen",
     schedule_copy_no_rooms: "Keine anderen Räume verfügbar.",
 
@@ -767,6 +771,8 @@ let isSaving = false;
 let pendingCircuits = null;
 let activeEntityPickerId = null;
 let scheduleRoomId = null;
+let scheduleCopyMode = "rooms";
+let scheduleCopySourceDay = null;
 let draftWeeklySchedule = null;
 // Offenes Popup: { kind: "global" | "room", roomId, isNew, snapshot, baseline, confirm }
 let editSession = null;
@@ -3611,7 +3617,17 @@ function renderScheduleCalendar() {
   for (const day of CAL_DAYS) {
     const hdr = document.createElement("div");
     hdr.className = "schedule-cal-day-hdr" + (day === today ? " today" : "");
-    hdr.textContent = getDayLabel(day);
+    const hdrLabel = document.createElement("span");
+    hdrLabel.textContent = getDayLabel(day);
+    hdr.appendChild(hdrLabel);
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "schedule-cal-day-copy";
+    copyBtn.textContent = "⧉";
+    copyBtn.title = t("schedule_copy_days");
+    copyBtn.setAttribute("aria-label", `${t("schedule_copy_days")} · ${getDayLabel(day)}`);
+    copyBtn.addEventListener("click", () => openScheduleCopyModal("days", day));
+    hdr.appendChild(copyBtn);
     cal.appendChild(hdr);
   }
 
@@ -4019,16 +4035,26 @@ function saveScheduleDraft() {
   closeScheduleModal();
 }
 
-function openScheduleCopyModal() {
+function openScheduleCopyModal(mode = "rooms", sourceDay = null) {
   if (!scheduleRoomId || !draftWeeklySchedule) {
     return;
   }
 
+  scheduleCopyMode = mode === "days" && WEEK_DAYS.includes(sourceDay) ? "days" : "rooms";
+  scheduleCopySourceDay = scheduleCopyMode === "days" ? sourceDay : null;
+
   if (els.scheduleCopyTitle) {
-    els.scheduleCopyTitle.textContent = t("schedule_copy_title");
+    els.scheduleCopyTitle.textContent =
+      scheduleCopyMode === "days"
+        ? `${t("schedule_copy_days_title")} · ${getDayLabel(scheduleCopySourceDay)}`
+        : t("schedule_copy_title");
   }
 
-  renderScheduleCopyRoomList();
+  if (scheduleCopyMode === "days") {
+    renderScheduleCopyDayList();
+  } else {
+    renderScheduleCopyRoomList();
+  }
   els.scheduleCopyModal.classList.remove("hidden");
 }
 
@@ -4068,6 +4094,57 @@ function renderScheduleCopyRoomList() {
   }
 }
 
+function renderScheduleCopyDayList() {
+  if (!els.scheduleCopyRoomsList) {
+    return;
+  }
+
+  els.scheduleCopyRoomsList.innerHTML = "";
+
+  for (const day of WEEK_DAYS) {
+    if (day === scheduleCopySourceDay) {
+      continue;
+    }
+
+    const row = document.createElement("label");
+    row.className = "schedule-copy-room";
+    row.innerHTML = `
+      <input type="checkbox" value="${escapeHtml(day)}" />
+      <span class="schedule-copy-room-label">${escapeHtml(getDayLabel(day))}</span>
+    `;
+    els.scheduleCopyRoomsList.appendChild(row);
+  }
+}
+
+function applyScheduleToSelectedDays() {
+  if (!scheduleRoomId || !draftWeeklySchedule || !scheduleCopySourceDay) {
+    closeScheduleCopyModal();
+    return;
+  }
+
+  const selectedDays = [
+    ...els.scheduleCopyRoomsList.querySelectorAll('input[type="checkbox"]:checked'),
+  ]
+    .map((checkbox) => checkbox.value)
+    .filter((day) => day !== scheduleCopySourceDay && WEEK_DAYS.includes(day));
+
+  if (!selectedDays.length) {
+    closeScheduleCopyModal();
+    return;
+  }
+
+  const sourceEntries = Array.isArray(draftWeeklySchedule[scheduleCopySourceDay])
+    ? draftWeeklySchedule[scheduleCopySourceDay]
+    : [];
+
+  for (const day of selectedDays) {
+    draftWeeklySchedule[day] = structuredClone(sourceEntries);
+  }
+
+  closeScheduleCopyModal();
+  renderScheduleCalendar();
+}
+
 function applyScheduleToSelectedRooms() {
   if (!scheduleRoomId || !draftWeeklySchedule) {
     closeScheduleCopyModal();
@@ -4100,10 +4177,18 @@ function bindScheduleEvents() {
   if (els.scheduleClose)        els.scheduleClose.addEventListener("click", closeScheduleModal);
   if (els.scheduleCancel)       els.scheduleCancel.addEventListener("click", closeScheduleModal);
   if (els.scheduleSave)         els.scheduleSave.addEventListener("click", saveScheduleDraft);
-  if (els.scheduleCopyRoomsBtn) els.scheduleCopyRoomsBtn.addEventListener("click", openScheduleCopyModal);
+  if (els.scheduleCopyRoomsBtn) els.scheduleCopyRoomsBtn.addEventListener("click", () => openScheduleCopyModal("rooms"));
   if (els.scheduleCopyClose)    els.scheduleCopyClose.addEventListener("click", closeScheduleCopyModal);
   if (els.scheduleCopyCancel)   els.scheduleCopyCancel.addEventListener("click", closeScheduleCopyModal);
-  if (els.scheduleCopyApply)    els.scheduleCopyApply.addEventListener("click", applyScheduleToSelectedRooms);
+  if (els.scheduleCopyApply) {
+    els.scheduleCopyApply.addEventListener("click", () => {
+      if (scheduleCopyMode === "days") {
+        applyScheduleToSelectedDays();
+      } else {
+        applyScheduleToSelectedRooms();
+      }
+    });
+  }
 
   if (els.scheduleModal) {
     els.scheduleModal.addEventListener("click", (e) => {

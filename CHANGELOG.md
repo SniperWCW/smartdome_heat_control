@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.14.1] – 2026-11-15
+
+### 🔧 „Auf andere Tage kopieren“ wieder da
+
+- Im Wochenplan-Editor (Kalenderansicht) hat jeder Wochentag im Kopf einen kleinen Knopf ⧉. Er kopiert den Tagesplan auf beliebige andere Wochentage. Die Funktion war in 3.14.0 durch den Umbau auf die Kalenderansicht weggefallen.
+
+---
+
+**EN:** The "copy to other days" feature is back: each weekday header of the calendar schedule editor has a ⧉ button that copies that day's schedule to any other weekdays.
+
+---
+
 ## [3.14.0] – 2026-11-15
 
 ### ✨ Fensterpausen-Statistik, Gas-Ersparnis, Lüft-Erinnerung und Sperrzeit
