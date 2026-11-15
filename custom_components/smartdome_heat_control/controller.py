@@ -218,6 +218,10 @@ class SmartHeatingController:
         # Letzte echte Schreibzeit pro Thermostat
         self._last_command_sent_at: dict[str, float] = {}
 
+        # Zeitlich begrenzter Komfort-Override je Raum: (Sollwert, Ablaufzeit)
+        self._comfort_override: dict[str, tuple[float, float]] = {}
+        self._comfort_override_seconds = 3600
+
         # Raumsensor-Ausfall: seit wann fehlt der Messwert, welche Räume gelten
         # als gestört (nur Räume mit eingetragenem Sensor).
         self._room_sensor_missing_since: dict[str, float] = {}
@@ -759,6 +763,25 @@ class SmartHeatingController:
             return True
         return bool(room.get(CONF_ROOM_AWAY_ENABLED, DEFAULT_ROOM_AWAY_ENABLED))
 
+    def set_comfort_override(self, room_id: str, temperature: float) -> None:
+        """Vorübergehende Raum-Komforttemperatur setzen, ohne Pläne/Konfiguration zu ändern."""
+        if room_id not in self._active_rooms():
+            return
+        requested = min(30.0, max(5.0, float(temperature)))
+        expires = dt_util.now().timestamp() + self._comfort_override_seconds
+        self._comfort_override[room_id] = (requested, expires)
+        self._evaluate()
+
+    def _active_comfort_target(self, room_id: str) -> float | None:
+        entry = self._comfort_override.get(room_id)
+        if entry is None:
+            return None
+        target, expires = entry
+        if dt_util.now().timestamp() >= expires:
+            self._comfort_override.pop(room_id, None)
+            return None
+        return target
+
     def get_room_status(self, room_id: str) -> dict[str, Any]:
         """Aktuellen Raumstatus für Entities (z.B. sensor.py) liefern."""
         room = self.config.get(CONF_ROOMS, {}).get(room_id)
@@ -778,12 +801,15 @@ class SmartHeatingController:
             "state", self._room_state.get(room_id, ROOM_STATE_IDLE)
         )
 
+        comfort_target = self._active_comfort_target(room_id)
         if not enabled:
             reason = "disabled"
         elif room_id in self._room_sensor_fault:
             reason = "sensor_fault"
         elif last_state.get("pause_active"):
             reason = "window_pause"
+        elif comfort_target is not None:
+            reason = "comfort_override"
         elif last_state.get("outdoor_cutoff_active"):
             reason = (
                 "minimum_temperature_heating"
@@ -809,6 +835,11 @@ class SmartHeatingController:
             "outdoor_cutoff_active": last_state.get("outdoor_cutoff_active", False),
             "outdoor_minimum_active": last_state.get("outdoor_minimum_active", False),
             "sensor_fault": room_id in self._room_sensor_fault,
+            "comfort_override_active": comfort_target is not None,
+            "comfort_override_target": comfort_target,
+            "comfort_override_remaining_seconds": max(
+                0, round(self._comfort_override[room_id][1] - dt_util.now().timestamp())
+            ) if comfort_target is not None else 0,
             "window_open": self._is_window_open(room),
             "window_pause_active": bool(last_state.get("pause_active")),
             "thermostats": self._room_thermostats(room),
@@ -1835,10 +1866,17 @@ class SmartHeatingController:
             # Bei Außensperre mit Mindesttemperatur wird nur bis zu dieser
             # reduzierten Temperatur geregelt. Die Zustandsmaschine wird genau
             # einmal gegen den wirksamen Sollwert ausgewertet.
+            comfort_target = self._active_comfort_target(room_id)
             control_target = (
-                min(target, outdoor_minimum) if outdoor_minimum is not None else target
+                comfort_target
+                if comfort_target is not None
+                else min(target, outdoor_minimum) if outdoor_minimum is not None else target
             )
-            minimum_active = outdoor_minimum is not None and control_target < target
+            minimum_active = (
+                comfort_target is None
+                and outdoor_minimum is not None
+                and control_target < target
+            )
 
             state = self._update_room_state(
                 room_id=room_id,
@@ -1864,6 +1902,7 @@ class SmartHeatingController:
                 "actual": actual,
                 "target": target,
                 "control_target": control_target,
+                "comfort_target": comfort_target,
                 "state": state,
                 "pause_active": pause_active,
                 "outdoor_cutoff_active": outdoor_cutoff_active,
@@ -2332,7 +2371,34 @@ class SmartHeatingController:
                 )
             ):
                 self._note_possible_manual_change(entity_id, old_target, new_target)
+            if (
+                old_target is not None
+                and new_target is not None
+                and new_target - old_target >= 0.5
+                and dt_util.now().timestamp() - self._last_command_sent_at.get(entity_id, 0) > 120
+                and self._start_comfort_override_from_thermostat(entity_id, new_target)
+            ):
+                return
         self._evaluate()
+
+    def _start_comfort_override_from_thermostat(self, entity_id: str, new_target: float) -> bool:
+        """Externe Sollwert-Erhöhung am Thermostat als befristeten Komfort-Override übernehmen."""
+        for room_id, room in self._active_rooms().items():
+            if entity_id not in self._room_thermostats(room):
+                continue
+            expected = self._desired_targets.get(entity_id)
+            # Verzögerte Bestätigungen eigener Befehle ignorieren.
+            if expected is not None and abs(new_target - expected) < 0.25:
+                return False
+            if self._room_temp(room) is None:
+                return False
+            self.set_comfort_override(room_id, new_target)
+            _LOGGER.info(
+                "Comfort override in %s: %.1f°C for %d minutes",
+                room_id, new_target, self._comfort_override_seconds // 60,
+            )
+            return True
+        return False
 
     @callback
     def _on_minute_tick(self, now) -> None:

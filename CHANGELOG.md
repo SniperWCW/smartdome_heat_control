@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.14.2] – 2026-11-15
+
+### 🔧 Komfort-Override aus dem Fork wieder da
+
+- Erhöht man den Sollwert direkt am Thermostat um mindestens 0,5 °C (nicht durch einen eigenen Befehl), gilt die neue Temperatur eine Stunde lang als **Komfort-Override**. Pläne und Konfiguration bleiben unverändert.
+- Auch die Soll-Temperatur in der Climate-Entität des Raums setzt diesen befristeten Override, statt Tag-, Nacht- oder Away-Wert dauerhaft zu ändern.
+- Der Raumstatus-Sensor zeigt `comfort_override_active`, `comfort_override_target` und `comfort_override_remaining_seconds`; der Regelgrund ist `comfort_override`. Eine Fensterpause hat weiterhin Vorrang.
+- Tests: `tests/test_comfort_override.py`.
+
+---
+
+**EN:** The fork's timed comfort override is back: raising the setpoint on the thermostat (or in the room's climate entity) applies the new temperature for one hour without touching schedules or configuration. Status attributes and control reason `comfort_override` are exposed.
+
+---
+
 ## [3.14.1] – 2026-11-15
 
 ### 🔧 „Auf andere Tage kopieren“ wieder da
