@@ -8,6 +8,7 @@ DATA_ENABLED = "enabled"
 # Dispatcher-Signal: wird nach jeder Auswertung mit dem Raumzustand gesendet,
 # damit Entities (z.B. sensor.py) sich ohne Polling aktualisieren können.
 SIGNAL_ROOM_STATE_UPDATED = f"{DOMAIN}_room_state_updated"
+SIGNAL_WINDOW_STATS_UPDATED = f"{DOMAIN}_window_stats_updated"
 
 PLATFORMS: list[str] = ["switch", "number", "select", "sensor", "climate"]
 
@@ -212,3 +213,31 @@ DEFAULT_VACATION_ENABLED = False
 DEFAULT_VACATION_TEMPERATURE = 14.0
 DEFAULT_AWAY_ENABLED = False
 DEFAULT_ROOM_AWAY_TEMPERATURE = 17.0
+
+
+# Fensterpause: Statistik, Gas-Schätzung, Erinnerung, Sperrzeit
+CONF_ROOM_FLOOR_AREA = "floor_area_m2"
+CONF_WINDOW_LOCK_ENABLED = "window_lock_enabled"
+CONF_WINDOW_LOCK_START = "window_lock_start"
+CONF_WINDOW_LOCK_END = "window_lock_end"
+CONF_WINDOW_REMINDER_ENABLED = "window_reminder_enabled"
+CONF_WINDOW_REMINDER_MINUTES = "window_reminder_minutes"
+CONF_WINDOW_REMINDER_SERVICES = "window_reminder_services"
+CONF_WINDOW_REMINDER_TITLE = "window_reminder_title"
+CONF_WINDOW_REMINDER_TEXT = "window_reminder_text"
+CONF_GAS_KWH_PER_M3 = "gas_kwh_per_m3"
+CONF_HEAT_LOAD_W_M2 = "heat_load_w_m2"
+CONF_DESIGN_OUTDOOR_TEMP = "design_outdoor_temp"
+CONF_FALLBACK_POWER_KW = "window_fallback_power_kw"
+
+DEFAULT_WINDOW_LOCK_ENABLED = False
+DEFAULT_WINDOW_LOCK_START = "22:00"
+DEFAULT_WINDOW_LOCK_END = "06:00"
+DEFAULT_WINDOW_REMINDER_ENABLED = False
+DEFAULT_WINDOW_REMINDER_MINUTES = 15
+DEFAULT_WINDOW_REMINDER_TITLE = "Fenster offen"
+DEFAULT_WINDOW_REMINDER_TEXT = "{fenster} in {raum} ist seit {minuten} Minuten offen."
+DEFAULT_GAS_KWH_PER_M3 = 10.0
+DEFAULT_HEAT_LOAD_W_M2 = 60.0
+DEFAULT_DESIGN_OUTDOOR_TEMP = -12.0
+DEFAULT_FALLBACK_POWER_KW = 1.0

@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.7.0] – 2026-11-15
+
+### ✨ Fensterpausen-Statistik, Gas-Ersparnis, Lüft-Erinnerung und Sperrzeit
+
+- **Pausenstatistik pro Raum:** Neue Sensoren *Fensterpause heute / Monat / Jahr / gesamt* (Minuten). Die Attribute `gespartes_gas_m3` und `gespartes_gas_kwh` zeigen die geschätzte Ersparnis, der Sensor „heute“ liefert zusätzlich den 14-Tage-`verlauf`. Der Verlauf der letzten 400 Tage wird gespeichert und übersteht Neustarts.
+- **Gas-Schätzung:** Aus Raumfläche (neues Raumfeld), Heizlast (W/m²), Auslegungs-Außentemperatur und der aktuellen Außentemperatur wird die Heizleistung minütlich aufsummiert. Ohne Außentemperatursensor gilt die halbe Auslegungsleistung, ohne Raumfläche eine feste Leistung (kW). Wäre die Heizung wegen der Außentemperatur-Abschaltung ohnehin aus, wird nichts gutgeschrieben.
+- **Panel:** Neue Karte *Fensterpausen & Gas-Ersparnis* mit Kacheln (heute, Monat, Jahr, gesamt) und 14-Tage-Balken je Raum. Neue Gruppe *Fenster & Lüften* in den globalen Einstellungen.
+- **Erinnerung bei langem Lüften:** Optionale Benachrichtigung über einen oder mehrere `notify`-Dienste, einmal pro Öffnen. Titel und Text sind anpassbar, Platzhalter `{raum}`, `{minuten}`, `{fenster}`.
+- **Sperrzeit:** In einem einstellbaren Zeitraum (auch über Mitternacht) startet keine neue Fensterpause. Eine bereits laufende Pause wird nicht beendet.
+- Der Status-Sensor jedes Raums trägt die Werte zusätzlich als flache Attribute (`window_pause_today_min`, `gas_saved_total_m3`, `window_pause_history`, `window_open`, `thermostats` …), z. B. für Dashboards wie Lumora oder die Integration Room Climate.
+- Neuer WebSocket-Befehl `smartdome_heat_control/get_window_stats`.
+
+---
+
+**EN:** Per-room window-pause statistics (today/month/year/total, 400-day history, 14-day chart), estimated gas savings from floor area, heating load and outdoor temperature, an optional reminder when a window stays open too long (`notify` services, placeholders `{raum}`, `{minuten}`, `{fenster}`) and a lock period in which no new window pause starts.
+
+---
+
 ## [3.6.3] – 2026-10-22
 
 ### ✨ Wochenplan-Editor: Tag auf andere Tage kopieren

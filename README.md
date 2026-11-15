@@ -113,6 +113,15 @@ A configurable delay prevents the system from reacting to very short ventilation
 
 ---
 
+### Window Pause Statistics, Gas Savings & Reminder
+
+- **Statistics per room:** sensors *Window pause today / month / year / total* (minutes). Attributes `gespartes_gas_m3` and `gespartes_gas_kwh` hold the estimated savings, the "today" sensor adds a 14-day `verlauf`. 400 days of history survive restarts. The side panel shows tiles and a 14-day bar chart.
+- **Gas estimate:** from the room's floor area, heating load (W/m²), design outdoor temperature and the current outdoor temperature (outdoor sensor of the cut-off setting). Without area a fixed power in kW is used.
+- **Reminder:** optional `notify` message when a window stays open too long (once per opening). Placeholders `{raum}`, `{minuten}`, `{fenster}`.
+- **Lock period:** no new window pause starts in the configured time span (may cross midnight).
+
+---
+
 ### Vacation Mode
 
 Reduces heating across all rooms for longer absences.
@@ -411,6 +420,15 @@ Wenn ein Fensterkontakt ein geöffnetes Fenster meldet:
 - Nach dem Schließen des Fensters wird die Heizung automatisch wieder aufgenommen
 
 Eine konfigurierbare Verzögerung verhindert, dass das System auf kurzes Lüften reagiert.
+
+---
+
+### Fensterpausen-Statistik, Gas-Ersparnis & Erinnerung
+
+- **Statistik pro Raum:** Sensoren *Fensterpause heute / Monat / Jahr / gesamt* (Minuten). Die Attribute `gespartes_gas_m3` und `gespartes_gas_kwh` zeigen die geschätzte Ersparnis, der Sensor „heute“ zusätzlich einen 14-Tage-`verlauf`. 400 Tage Verlauf überstehen Neustarts. Das Seitenpanel zeigt Kacheln und ein 14-Tage-Balkendiagramm.
+- **Gas-Schätzung:** aus Raumfläche, Heizlast (W/m²), Auslegungs-Außentemperatur und aktueller Außentemperatur (Sensor der Außentemperatur-Abschaltung). Ohne Fläche gilt eine feste Leistung in kW.
+- **Erinnerung:** optionale `notify`-Meldung, wenn ein Fenster zu lange offen ist (einmal pro Öffnen). Platzhalter `{raum}`, `{minuten}`, `{fenster}`.
+- **Sperrzeit:** In der eingestellten Zeitspanne (auch über Mitternacht) startet keine neue Fensterpause.
 
 ---
 

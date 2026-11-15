@@ -16,6 +16,30 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    CONF_DESIGN_OUTDOOR_TEMP,
+    CONF_FALLBACK_POWER_KW,
+    CONF_GAS_KWH_PER_M3,
+    CONF_HEAT_LOAD_W_M2,
+    CONF_ROOM_FLOOR_AREA,
+    CONF_WINDOW_LOCK_ENABLED,
+    CONF_WINDOW_LOCK_END,
+    CONF_WINDOW_LOCK_START,
+    CONF_WINDOW_REMINDER_ENABLED,
+    CONF_WINDOW_REMINDER_MINUTES,
+    CONF_WINDOW_REMINDER_SERVICES,
+    CONF_WINDOW_REMINDER_TEXT,
+    CONF_WINDOW_REMINDER_TITLE,
+    DEFAULT_DESIGN_OUTDOOR_TEMP,
+    DEFAULT_FALLBACK_POWER_KW,
+    DEFAULT_GAS_KWH_PER_M3,
+    DEFAULT_HEAT_LOAD_W_M2,
+    DEFAULT_WINDOW_LOCK_ENABLED,
+    DEFAULT_WINDOW_LOCK_END,
+    DEFAULT_WINDOW_LOCK_START,
+    DEFAULT_WINDOW_REMINDER_ENABLED,
+    DEFAULT_WINDOW_REMINDER_MINUTES,
+    DEFAULT_WINDOW_REMINDER_TEXT,
+    DEFAULT_WINDOW_REMINDER_TITLE,
     CONF_AWAY_ENABLED,
     CONF_CIRCUIT_CONTROL_TYPE,
     CONF_CIRCUIT_ENABLED,
@@ -369,6 +393,7 @@ def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
                 room.get(CONF_ROOM_THERMOSTAT_OFFSET, DEFAULT_ROOM_THERMOSTAT_OFFSET)
             ),
             CONF_ROOM_ORDER: int(room.get(CONF_ROOM_ORDER, 0)),
+            CONF_ROOM_FLOOR_AREA: _non_negative_float(room.get(CONF_ROOM_FLOOR_AREA)),
             CONF_ROOM_HEATING_MODE: room.get(CONF_ROOM_HEATING_MODE, ""),
             CONF_ROOM_CLIMATE_ENTITY: str(room.get(CONF_ROOM_CLIMATE_ENTITY, "")),
             CONF_ROOM_USE_CLIMATE: bool(room.get(CONF_ROOM_USE_CLIMATE, False)),
@@ -380,6 +405,14 @@ def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
         }
 
     return normalized
+
+
+def _non_negative_float(value: Any) -> float:
+    """Zahl >= 0, bei ungültigen Werten 0."""
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _normalize_circuits(circuits: Any) -> dict[str, dict[str, Any]]:
@@ -421,6 +454,18 @@ def _normalize_config(cfg: dict[str, Any]) -> dict[str, Any]:
     normalized.setdefault(CONF_COOLING_ENABLED, DEFAULT_COOLING_ENABLED)
     normalized.setdefault(CONF_COOLING_AUTO, DEFAULT_COOLING_AUTO)
     normalized.setdefault(CONF_COOLING_THRESHOLD, DEFAULT_COOLING_THRESHOLD)
+    normalized.setdefault(CONF_WINDOW_LOCK_ENABLED, DEFAULT_WINDOW_LOCK_ENABLED)
+    normalized.setdefault(CONF_WINDOW_LOCK_START, DEFAULT_WINDOW_LOCK_START)
+    normalized.setdefault(CONF_WINDOW_LOCK_END, DEFAULT_WINDOW_LOCK_END)
+    normalized.setdefault(CONF_WINDOW_REMINDER_ENABLED, DEFAULT_WINDOW_REMINDER_ENABLED)
+    normalized.setdefault(CONF_WINDOW_REMINDER_MINUTES, DEFAULT_WINDOW_REMINDER_MINUTES)
+    normalized.setdefault(CONF_WINDOW_REMINDER_SERVICES, [])
+    normalized.setdefault(CONF_WINDOW_REMINDER_TITLE, DEFAULT_WINDOW_REMINDER_TITLE)
+    normalized.setdefault(CONF_WINDOW_REMINDER_TEXT, DEFAULT_WINDOW_REMINDER_TEXT)
+    normalized.setdefault(CONF_GAS_KWH_PER_M3, DEFAULT_GAS_KWH_PER_M3)
+    normalized.setdefault(CONF_HEAT_LOAD_W_M2, DEFAULT_HEAT_LOAD_W_M2)
+    normalized.setdefault(CONF_DESIGN_OUTDOOR_TEMP, DEFAULT_DESIGN_OUTDOOR_TEMP)
+    normalized.setdefault(CONF_FALLBACK_POWER_KW, DEFAULT_FALLBACK_POWER_KW)
     return normalized
 
 
@@ -471,7 +516,35 @@ def _async_register_ws_save_config(hass: HomeAssistant) -> None:
         _push_state(hass, new_cfg)
         connection.send_result(msg["id"], {"success": True})
 
+    @websocket_api.websocket_command(
+        {vol.Required("type"): f"{DOMAIN}/get_window_stats"}
+    )
+    @websocket_api.async_response
+    async def ws_get_window_stats(
+        hass: HomeAssistant,
+        connection: websocket_api.ActiveConnection,
+        msg: dict[str, Any],
+    ) -> None:
+        target_entry = _get_single_entry(hass)
+        if target_entry is None:
+            connection.send_error(msg["id"], "not_found", "Keine Config Entry gefunden")
+            return
+        data = hass.data[DOMAIN][target_entry.entry_id]
+        controller = data[DATA_CONTROLLER]
+        rooms = data["config"].get(CONF_ROOMS, {})
+        connection.send_result(
+            msg["id"],
+            {
+                room_id: {
+                    "label": room.get("label", room_id),
+                    **controller.get_window_summary(room_id),
+                }
+                for room_id, room in rooms.items()
+            },
+        )
+
     websocket_api.async_register_command(hass, ws_save_config)
+    websocket_api.async_register_command(hass, ws_get_window_stats)
     hass.data[DOMAIN]["_ws_registered"] = True
 
 

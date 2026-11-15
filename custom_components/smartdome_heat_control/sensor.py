@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -15,7 +15,15 @@ from .const import (
     DATA_CONTROLLER,
     DOMAIN,
     SIGNAL_ROOM_STATE_UPDATED,
+    SIGNAL_WINDOW_STATS_UPDATED,
 )
+
+WINDOW_PAUSE_PERIODS = {
+    "today": "Fensterpause heute",
+    "month": "Fensterpause Monat",
+    "year": "Fensterpause Jahr",
+    "total": "Fensterpause gesamt",
+}
 
 ROOM_STATUS_OPTIONS = ["off", "idle", "heating", "residual_hold", "window_pause"]
 
@@ -36,6 +44,10 @@ async def async_setup_entry(
             continue
         label = str(room.get(CONF_ROOM_LABEL, room_id))
         entities.append(SmartdomeRoomStatusSensor(hass, entry, room_id, label))
+        for period, period_label in WINDOW_PAUSE_PERIODS.items():
+            entities.append(
+                SmartdomeWindowPauseSensor(hass, entry, room_id, label, period, period_label)
+            )
 
     async_add_entities(entities, True)
 
@@ -100,7 +112,22 @@ class SmartdomeRoomStatusSensor(SensorEntity):
             "comfort_override_active": status["comfort_override_active"],
             "comfort_override_target": status["comfort_override_target"],
             "comfort_override_remaining_seconds": status["comfort_override_remaining_seconds"],
+            "window_open": status.get("window_open", False),
+            "window_pause_active": status.get("window_pause_active", False),
+            "thermostats": status.get("thermostats", []),
+            **self._window_stats_attributes(controller),
         }
+
+    def _window_stats_attributes(self, controller: Any) -> dict[str, Any]:
+        """Pausenstatistik als flache Attribute (für Dashboards wie Lumora)."""
+        summary = controller.get_window_summary(self._room_id)
+        attrs: dict[str, Any] = {}
+        for period in ("today", "month", "year", "total"):
+            attrs[f"window_pause_{period}_min"] = summary[period]["minutes"]
+            attrs[f"gas_saved_{period}_m3"] = summary[period]["m3"]
+            attrs[f"gas_saved_{period}_kwh"] = summary[period]["kwh"]
+        attrs["window_pause_history"] = [d["minutes"] for d in summary["history"]]
+        return attrs
 
     async def async_added_to_hass(self) -> None:
         """Auf Raumzustands-Updates reagieren, ohne zu pollen."""
@@ -111,6 +138,18 @@ class SmartdomeRoomStatusSensor(SensorEntity):
                 self._handle_update,
             )
         )
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                SIGNAL_WINDOW_STATS_UPDATED,
+                self._handle_stats_update,
+            )
+        )
+
+    @callback
+    def _handle_stats_update(self, room_id: str) -> None:
+        if room_id == self._room_id:
+            self.async_write_ha_state()
 
     @callback
     def _handle_update(self, room_states: dict[str, Any]) -> None:
@@ -118,3 +157,73 @@ class SmartdomeRoomStatusSensor(SensorEntity):
         # (state wechselt auf "off") ist dieser Raum hier NICHT enthalten,
         # daher unabhängig vom Payload-Inhalt immer aktualisieren.
         self.async_write_ha_state()
+
+
+class SmartdomeWindowPauseSensor(SensorEntity):
+    """Pausenzeit der Heizung bei offenem Fenster mit geschätzter Gas-Ersparnis."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_icon = "mdi:window-open-variant"
+    _attr_native_unit_of_measurement = "min"
+    _attr_suggested_display_precision = 0
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        room_id: str,
+        room_label: str,
+        period: str,
+        period_label: str,
+    ) -> None:
+        self.hass = hass
+        self._entry = entry
+        self._room_id = room_id
+        self._period = period
+        self._attr_unique_id = f"{entry.entry_id}_room_{room_id}_window_pause_{period}"
+        self._attr_name = f"{room_label} – {period_label}"
+        if period == "total":
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    @property
+    def available(self) -> bool:
+        return self._entry.entry_id in self.hass.data.get(DOMAIN, {})
+
+    def _summary(self) -> dict[str, Any] | None:
+        entry_data = self.hass.data.get(DOMAIN, {}).get(self._entry.entry_id)
+        controller = entry_data.get(DATA_CONTROLLER) if entry_data else None
+        if controller is None:
+            return None
+        return controller.get_window_summary(self._room_id)
+
+    @property
+    def native_value(self) -> int | None:
+        summary = self._summary()
+        return None if summary is None else summary[self._period]["minutes"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        summary = self._summary()
+        if summary is None:
+            return {}
+        period = summary[self._period]
+        attrs: dict[str, Any] = {
+            "gespartes_gas_m3": period["m3"],
+            "gespartes_gas_kwh": period["kwh"],
+        }
+        if self._period == "today":
+            attrs["verlauf"] = summary["history"]
+        return attrs
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_WINDOW_STATS_UPDATED, self._handle_update
+            )
+        )
+
+    @callback
+    def _handle_update(self, room_id: str) -> None:
+        if room_id == self._room_id:
+            self.async_write_ha_state()

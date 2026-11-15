@@ -1,0 +1,94 @@
+name: Release
+
+# Legt automatisch ein GitHub-Release an, sobald auf main eine neue Version in
+# manifest.json steht (der Tag wird zusammen mit dem Release erzeugt). Ist der
+# Tag bereits vorhanden, passiert nichts. Manuell startbar über "Run workflow".
+on:
+  push:
+    branches: [main]
+    paths:
+      - custom_components/smartdome_heat_control/manifest.json
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(python3 -c "import json; print(json.load(open('custom_components/smartdome_heat_control/manifest.json'))['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION"
+
+      - name: Validate sources
+        run: |
+          python3 -m py_compile custom_components/smartdome_heat_control/*.py
+          for f in hacs.json custom_components/smartdome_heat_control/manifest.json \
+                   custom_components/smartdome_heat_control/strings.json \
+                   custom_components/smartdome_heat_control/translations/*.json; do
+            python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check panel syntax
+        run: node --check custom_components/smartdome_heat_control/www/app.js
+
+      - name: Run unit tests
+        run: |
+          pip install pytest
+          python -m pytest -q tests
+
+      - name: Check whether the tag already exists
+        id: tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag v$VERSION existiert bereits, es wird kein Release angelegt."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes from CHANGELOG
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          awk -v h="## [$VERSION]" 'index($0,h)==1{f=1;next} /^## \[/{f=0} f' CHANGELOG.md | sed '/./,$!d' > release-notes.md
+          if [ ! -s release-notes.md ]; then echo "Release v$VERSION" > release-notes.md; fi
+          cat release-notes.md
+
+      - name: Build integration archive
+        if: steps.tag.outputs.exists == 'false'
+        run: |
+          cd custom_components/smartdome_heat_control
+          zip -r ../../smartdome_heat_control.zip . -x "__pycache__/*" "*.pyc"
+
+      - name: Create release
+        if: steps.tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          FLAGS=""
+          case "$VERSION" in *-*) FLAGS="--prerelease" ;; esac
+          gh release create "v$VERSION" smartdome_heat_control.zip \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --notes-file release-notes.md \
+            $FLAGS

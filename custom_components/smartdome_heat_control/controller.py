@@ -83,6 +83,28 @@ from .const import (
     CONF_VACATION_TEMPERATURE,
     CONF_WINDOW_CLOSE_DELAY,
     CONF_WINDOW_OPEN_DELAY,
+    CONF_DESIGN_OUTDOOR_TEMP,
+    CONF_FALLBACK_POWER_KW,
+    CONF_GAS_KWH_PER_M3,
+    CONF_HEAT_LOAD_W_M2,
+    CONF_ROOM_FLOOR_AREA,
+    CONF_WINDOW_LOCK_ENABLED,
+    CONF_WINDOW_LOCK_END,
+    CONF_WINDOW_LOCK_START,
+    CONF_WINDOW_REMINDER_ENABLED,
+    CONF_WINDOW_REMINDER_MINUTES,
+    CONF_WINDOW_REMINDER_SERVICES,
+    CONF_WINDOW_REMINDER_TEXT,
+    CONF_WINDOW_REMINDER_TITLE,
+    DEFAULT_DESIGN_OUTDOOR_TEMP,
+    DEFAULT_FALLBACK_POWER_KW,
+    DEFAULT_GAS_KWH_PER_M3,
+    DEFAULT_HEAT_LOAD_W_M2,
+    DEFAULT_WINDOW_LOCK_END,
+    DEFAULT_WINDOW_LOCK_START,
+    DEFAULT_WINDOW_REMINDER_MINUTES,
+    DEFAULT_WINDOW_REMINDER_TEXT,
+    DEFAULT_WINDOW_REMINDER_TITLE,
     CONTROL_PROFILE_SELF_REGULATING,
     CONTROL_PROFILE_STANDARD,
     DEFAULT_ADAPTIVE_OVERSHOOT,
@@ -125,6 +147,14 @@ from .const import (
     DEFAULT_ROOM_CLIMATE_PRESET,
     DEFAULT_ROOM_CLIMATE_HVAC_MODE,
 )
+from .window_stats import (
+    WindowStats,
+    heating_power_kw,
+    in_time_window,
+    parse_hhmm,
+    render_text,
+    split_services,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -150,6 +180,8 @@ class SmartHeatingController:
         self._window_open_since: dict[str, float] = {}
         self._window_closed_since: dict[str, float] = {}
         self._window_paused_rooms: set[str] = set()
+        self._window_reminded: set[str] = set()
+        self.window_stats = WindowStats(hass)
         self._enabled = True
         self._unsub: list[Callable[[], None]] = []
 
@@ -194,6 +226,7 @@ class SmartHeatingController:
         Wichtig:
         Es werden nur Sensoren beobachtet, nicht die Thermostate selbst.
         """
+        await self.window_stats.async_load()
         self._unsubscribe_all()
 
         if not self._enabled:
@@ -487,6 +520,9 @@ class SmartHeatingController:
                 return open_delay <= 0
 
             if now - opened_since >= open_delay:
+                if room_id not in self._window_paused_rooms and self._window_lock_active():
+                    # Sperrzeit: neue Fensterpausen werden nicht gestartet.
+                    return False
                 self._window_paused_rooms.add(room_id)
                 return True
 
@@ -725,6 +761,9 @@ class SmartHeatingController:
             "outdoor_minimum_active": last_state.get("outdoor_minimum_active", False),
             "control_target_temperature": last_state.get("control_target"),
             "sensor_fault": room_id in self._room_sensor_fault,
+            "window_open": self._is_window_open(room),
+            "window_pause_active": bool(last_state.get("pause_active")),
+            "thermostats": self._room_thermostats(room),
             "comfort_override_active": comfort_target is not None,
             "comfort_override_target": comfort_target,
             "comfort_override_remaining_seconds": max(
@@ -1785,3 +1824,110 @@ class SmartHeatingController:
     def _on_minute_tick(self, now) -> None:
         """Zyklische Auswertung jede Minute."""
         self._evaluate()
+        self._account_window_pauses()
+        self._check_window_reminders()
+
+    def _window_lock_active(self) -> bool:
+        """Sperrzeit: in dieser Zeit startet keine neue Fensterpause."""
+        if not bool(self.config.get(CONF_WINDOW_LOCK_ENABLED, False)):
+            return False
+        start = parse_hhmm(self.config.get(CONF_WINDOW_LOCK_START, DEFAULT_WINDOW_LOCK_START))
+        end = parse_hhmm(self.config.get(CONF_WINDOW_LOCK_END, DEFAULT_WINDOW_LOCK_END))
+        if start is None or end is None:
+            return False
+        return in_time_window(dt_util.now().time(), start, end)
+
+    def _outdoor_temperature(self) -> float | None:
+        sensor = self._as_entity_id(self.config.get(CONF_OUTDOOR_SENSOR))
+        return self._get_state_float(sensor) if sensor else None
+
+    def _config_float(self, key: str, default: float) -> float:
+        value = self._safe_float(self.config.get(key, default))
+        return default if value is None else value
+
+    def _account_window_pauses(self) -> None:
+        """Pausenminuten und geschätzte Gas-Ersparnis pro Raum verbuchen."""
+        outdoor = self._outdoor_temperature()
+        load = self._config_float(CONF_HEAT_LOAD_W_M2, DEFAULT_HEAT_LOAD_W_M2)
+        design = self._config_float(CONF_DESIGN_OUTDOOR_TEMP, DEFAULT_DESIGN_OUTDOOR_TEMP)
+        fallback = self._config_float(CONF_FALLBACK_POWER_KW, DEFAULT_FALLBACK_POWER_KW)
+        rooms = self._active_rooms()
+        for room_id, rstate in self._last_room_states.items():
+            room = rooms.get(room_id)
+            if room is None or not rstate.get("pause_active"):
+                continue
+            # Wäre die Heizung ohnehin aus (Außentemperatur-Abschaltung), ist nichts gespart.
+            if rstate.get("outdoor_cutoff_active"):
+                continue
+            area = self._safe_float(room.get(CONF_ROOM_FLOOR_AREA)) or 0.0
+            kw = heating_power_kw(
+                area_m2=area,
+                load_w_m2=load,
+                indoor=rstate.get("target"),
+                outdoor=outdoor,
+                design_outdoor=design,
+                fallback_kw=fallback,
+            )
+            self.window_stats.add_minute(room_id, kw / 60.0)
+
+    def get_window_summary(self, room_id: str) -> dict[str, Any]:
+        """Pausenstatistik eines Raums (für Sensoren und Panel)."""
+        return self.window_stats.summary(
+            room_id,
+            self._config_float(CONF_GAS_KWH_PER_M3, DEFAULT_GAS_KWH_PER_M3),
+        )
+
+    def _check_window_reminders(self) -> None:
+        """Erinnerung senden, wenn ein Fenster zu lange offen ist (einmal je Öffnen)."""
+        enabled = bool(self.config.get(CONF_WINDOW_REMINDER_ENABLED, False))
+        for room_id in list(self._window_reminded):
+            if room_id not in self._window_open_since:
+                self._window_reminded.discard(room_id)
+        if not enabled:
+            return
+        minutes_limit = int(
+            self._config_float(CONF_WINDOW_REMINDER_MINUTES, DEFAULT_WINDOW_REMINDER_MINUTES)
+        )
+        services = split_services(self.config.get(CONF_WINDOW_REMINDER_SERVICES, []))
+        if not services:
+            return
+        now = dt_util.now().timestamp()
+        rooms = self._active_rooms()
+        for room_id, opened_since in list(self._window_open_since.items()):
+            room = rooms.get(room_id)
+            if room is None or room_id in self._window_reminded:
+                continue
+            elapsed = int((now - opened_since) // 60)
+            if elapsed < minutes_limit:
+                continue
+            self._window_reminded.add(room_id)
+            names = []
+            for entity_id in room.get(CONF_ROOM_WINDOW_SENSORS, []) or []:
+                st = self.hass.states.get(entity_id) if entity_id else None
+                if st and str(st.state).lower() in {"on", "open", "true"}:
+                    names.append(str(st.attributes.get("friendly_name") or entity_id))
+            values = {
+                "raum": room.get("label", room_id),
+                "minuten": elapsed,
+                "fenster": ", ".join(names) or "Fenster",
+            }
+            title = render_text(
+                self.config.get(CONF_WINDOW_REMINDER_TITLE, DEFAULT_WINDOW_REMINDER_TITLE),
+                **values,
+            )
+            message = render_text(
+                self.config.get(CONF_WINDOW_REMINDER_TEXT, DEFAULT_WINDOW_REMINDER_TEXT)
+                or DEFAULT_WINDOW_REMINDER_TEXT,
+                **values,
+            )
+            for service in services:
+                self.hass.async_create_task(self._send_notify(service, title, message))
+
+    async def _send_notify(self, service: str, title: str, message: str) -> None:
+        data: dict[str, Any] = {"message": message}
+        if title:
+            data["title"] = title
+        try:
+            await self.hass.services.async_call("notify", service, data, blocking=True)
+        except Exception as err:  # noqa: BLE001 - ein Dienst darf andere nicht blockieren
+            _LOGGER.warning("Benachrichtigung über notify.%s fehlgeschlagen: %s", service, err)

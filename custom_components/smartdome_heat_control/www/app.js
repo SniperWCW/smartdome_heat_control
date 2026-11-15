@@ -224,6 +224,27 @@ const I18N = {
     cooling_auto: "Auto cooling",
     cooling_auto_hint: "Automatically activates cooling when outdoor temperature ≥ threshold.",
     cooling_threshold: "Threshold (°C)",
+    section_window: "Windows & ventilation",
+    window_lock_enabled: "Lock period for window pause",
+    window_lock_hint: "No new window pause starts during this time (may span midnight).",
+    window_reminder_enabled: "Reminder for long ventilation",
+    window_reminder_hint: "Notification when a window stays open longer than set (once per opening).",
+    window_reminder_services: "Notification services (comma separated)",
+    window_reminder_title: "Title",
+    window_reminder_text: "Text ({raum}, {minuten}, {fenster})",
+    gas_kwh_per_m3: "Energy per m³ gas (kWh)",
+    heat_load_w_m2: "Heating load (W/m²)",
+    design_outdoor_temp: "Design outdoor temperature (°C)",
+    window_fallback_power_kw: "Fixed power without floor area (kW)",
+    window_gas_note: "Gas savings are an estimate from floor area, heating load and outdoor temperature (outdoor sensor from the cut-off setting).",
+    window_stats_title: "Window pauses & gas savings",
+    window_stats_today: "Today",
+    window_stats_month: "Month",
+    window_stats_year: "Year",
+    window_stats_total: "Total",
+    window_stats_history: "Last 14 days (minutes of pause per day)",
+    window_stats_none: "No data yet.",
+    room_floor_area: "Floor area (m², 0 = fixed power)",
     room_climate_entity: "Air conditioning (climate entity)",
     room_use_climate: "Use AC for heating",
     room_use_climate_hint: "Uses the air conditioning unit for heating instead of the radiator valve.",
@@ -432,6 +453,27 @@ const I18N = {
     cooling_auto: "Auto-Kühlen",
     cooling_auto_hint: "Aktiviert Kühlen automatisch wenn Außentemperatur ≥ Schwellenwert.",
     cooling_threshold: "Schwellenwert (°C)",
+    section_window: "Fenster &amp; Lüften",
+    window_lock_enabled: "Sperrzeit für Fensterpause",
+    window_lock_hint: "In dieser Zeit startet keine neue Fensterpause (auch über Mitternacht).",
+    window_reminder_enabled: "Erinnerung bei langem Lüften",
+    window_reminder_hint: "Benachrichtigung, wenn ein Fenster länger als eingestellt offen ist (einmal pro Öffnen).",
+    window_reminder_services: "Benachrichtigungsdienste (kommagetrennt)",
+    window_reminder_title: "Titel",
+    window_reminder_text: "Text ({raum}, {minuten}, {fenster})",
+    gas_kwh_per_m3: "Energie pro m³ Gas (kWh)",
+    heat_load_w_m2: "Heizlast (W/m²)",
+    design_outdoor_temp: "Auslegungs-Außentemperatur (°C)",
+    window_fallback_power_kw: "Feste Leistung ohne Raumfläche (kW)",
+    window_gas_note: "Die Gas-Ersparnis ist eine Schätzung aus Raumfläche, Heizlast und Außentemperatur (Sensor unter Außentemperatur-Abschaltung).",
+    window_stats_title: "Fensterpausen &amp; Gas-Ersparnis",
+    window_stats_today: "Heute",
+    window_stats_month: "Monat",
+    window_stats_year: "Jahr",
+    window_stats_total: "Gesamt",
+    window_stats_history: "Letzte 14 Tage (Pausenminuten pro Tag)",
+    window_stats_none: "Noch keine Daten.",
+    room_floor_area: "Raumfläche (m², 0 = feste Leistung)",
     room_climate_entity: "Klimaanlage (Climate-Entity)",
     room_use_climate: "Klimaanlage zum Heizen nutzen",
     room_use_climate_hint: "Nutzt die Klimaanlage zum Heizen anstatt des Heizkörperventils.",
@@ -494,6 +536,18 @@ const DEFAULTS = {
   cooling_enabled: false,
   cooling_auto: false,
   cooling_threshold: 24.0,
+  window_lock_enabled: false,
+  window_lock_start: "22:00",
+  window_lock_end: "06:00",
+  window_reminder_enabled: false,
+  window_reminder_minutes: 15,
+  window_reminder_services: "",
+  window_reminder_title: "Fenster offen",
+  window_reminder_text: "{fenster} in {raum} ist seit {minuten} Minuten offen.",
+  gas_kwh_per_m3: 10.0,
+  heat_load_w_m2: 60.0,
+  design_outdoor_temp: -12.0,
+  window_fallback_power_kw: 1.0,
   room_cool_target_day: 23.0,
   room_cool_target_night: 24.0,
   room_climate_fan_mode: "auto",
@@ -820,6 +874,7 @@ function normalizeRoom(roomId, room) {
     target_day: normalizeNumber(room?.target_day, 21.0),
     target_night: normalizeNumber(room?.target_night, 18.0),
     away_temperature: normalizeNumber(room?.away_temperature, 17.0),
+    floor_area_m2: Math.max(0, normalizeNumber(room?.floor_area_m2, 0)),
     room_away_enabled: room?.room_away_enabled === true,
     weekly_schedule: normalizeWeeklySchedule(room?.weekly_schedule),
     day_start: normalizeTime(room?.day_start, ""),
@@ -1732,6 +1787,7 @@ function renderGlobalSettings() {
     els.globalAwayTemperature.value = String(normalizeNumber(cfg.global_away_temperature, DEFAULTS.global_away_temperature));
   }
 
+  fillWindowSettings(cfg);
   if (els.coolingEnabled) els.coolingEnabled.checked = cfg.cooling_enabled ?? false;
   if (els.coolingAuto) els.coolingAuto.checked = cfg.cooling_auto ?? false;
   if (els.coolingThreshold) {
@@ -2044,6 +2100,13 @@ function createRoomCard(roomId, room) {
           </label>
           <input class="room-away-temperature" type="number" min="5" max="30" step="0.5" value="${escapeHtml(
             room.away_temperature
+          )}" />
+        </div>
+
+        <div class="field">
+          <label>${escapeHtml(t("room_floor_area"))}</label>
+          <input class="room-floor-area" type="number" min="0" max="500" step="0.5" value="${escapeHtml(
+            room.floor_area_m2 ?? 0
           )}" />
         </div>
 
@@ -2451,6 +2514,7 @@ function collectFormState() {
   cfg.global_away_temperature = els.globalAwayTemperature
     ? normalizeNumber(els.globalAwayTemperature.value, DEFAULTS.global_away_temperature)
     : DEFAULTS.global_away_temperature;
+  collectWindowSettings(cfg);
   cfg.cooling_enabled = els.coolingEnabled ? els.coolingEnabled.checked : false;
   cfg.cooling_auto = els.coolingAuto ? els.coolingAuto.checked : false;
   cfg.cooling_threshold = els.coolingThreshold
@@ -2485,6 +2549,7 @@ function collectFormState() {
       target_day: node.querySelector(".room-target-day").value,
       target_night: node.querySelector(".room-target-night").value,
       away_temperature: node.querySelector(".room-away-temperature").value,
+      floor_area_m2: normalizeNumber(node.querySelector(".room-floor-area")?.value, 0),
       room_away_enabled: node.querySelector(".room-away-enabled")?.checked === true,
       weekly_schedule: existingRoom.weekly_schedule || DEFAULT_WEEKLY_SCHEDULE,
       day_start: node.querySelector(".room-day-start").value || "",
@@ -2681,6 +2746,96 @@ async function reloadConfig() {
   }
 }
 
+// ─── Fenster & Lüften: Einstellungen und Statistik ───────────────────────────
+const WINDOW_SETTING_FIELDS = [
+  ["window_lock_enabled", "checkbox"],
+  ["window_lock_start", "time"],
+  ["window_lock_end", "time"],
+  ["window_reminder_enabled", "checkbox"],
+  ["window_reminder_minutes", "number"],
+  ["window_reminder_services", "services"],
+  ["window_reminder_title", "text"],
+  ["window_reminder_text", "text"],
+  ["gas_kwh_per_m3", "number"],
+  ["heat_load_w_m2", "number"],
+  ["design_outdoor_temp", "number"],
+  ["window_fallback_power_kw", "number"],
+];
+
+function fillWindowSettings(cfg) {
+  for (const [key, type] of WINDOW_SETTING_FIELDS) {
+    const el = document.getElementById(key);
+    if (!el) continue;
+    const value = cfg[key] ?? DEFAULTS[key];
+    if (type === "checkbox") el.checked = value === true;
+    else if (type === "services") el.value = Array.isArray(value) ? value.join(", ") : String(value || "");
+    else if (type === "number") el.value = String(normalizeNumber(value, DEFAULTS[key]));
+    else el.value = String(value ?? "");
+  }
+}
+
+function collectWindowSettings(cfg) {
+  for (const [key, type] of WINDOW_SETTING_FIELDS) {
+    const el = document.getElementById(key);
+    if (!el) continue;
+    if (type === "checkbox") cfg[key] = el.checked;
+    else if (type === "services") {
+      cfg[key] = el.value.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (type === "number") cfg[key] = normalizeNumber(el.value, DEFAULTS[key]);
+    else if (type === "time") cfg[key] = normalizeTime(el.value, DEFAULTS[key]);
+    else cfg[key] = el.value;
+  }
+}
+
+function formatGas(period) {
+  return `${period.m3.toLocaleString(UI_LANG, { maximumFractionDigits: 2 })} m³ · ${period.kwh.toLocaleString(UI_LANG, { maximumFractionDigits: 1 })} kWh`;
+}
+
+function formatMinutes(minutes) {
+  if (minutes >= 120) return `${(minutes / 60).toLocaleString(UI_LANG, { maximumFractionDigits: 1 })} h`;
+  return `${minutes} min`;
+}
+
+async function loadWindowStats() {
+  const body = document.getElementById("windowStatsBody");
+  if (!body) return;
+  try {
+    const ws = await getHassWS();
+    const stats = await ws.sendMessagePromise({ type: "smartdome_heat_control/get_window_stats" });
+    const ids = Object.keys(stats || {});
+    if (!ids.length) {
+      body.innerHTML = `<div class="ws-empty">${escapeHtml(t("window_stats_none"))}</div>`;
+      return;
+    }
+    body.innerHTML = ids
+      .map((id) => {
+        const s = stats[id];
+        const tiles = ["today", "month", "year", "total"]
+          .map(
+            (p) => `<div class="ws-tile"><small>${escapeHtml(t("window_stats_" + p))}</small><strong>${escapeHtml(
+              formatMinutes(s[p].minutes)
+            )}</strong><small>${escapeHtml(formatGas(s[p]))}</small></div>`
+          )
+          .join("");
+        const max = Math.max(1, ...s.history.map((d) => d.minutes));
+        const bars = s.history
+          .map(
+            (d) => `<div class="ws-bar" title="${escapeHtml(d.date)}: ${d.minutes} min" style="height:${Math.round(
+              (d.minutes / max) * 100
+            )}%"></div>`
+          )
+          .join("");
+        return `<div class="ws-room"><div class="ws-name">${escapeHtml(s.label)}</div><div class="ws-tiles">${tiles}</div><small class="ws-empty">${escapeHtml(
+          t("window_stats_history")
+        )}</small><div class="ws-bars">${bars}</div></div>`;
+      })
+      .join("");
+  } catch (error) {
+    console.warn("Fensterstatistik nicht verfügbar", error);
+    body.innerHTML = `<div class="ws-empty">${escapeHtml(t("window_stats_none"))}</div>`;
+  }
+}
+
 async function refreshAll() {
   await loadAllStates();
   await loadConfig();
@@ -2688,6 +2843,7 @@ async function refreshAll() {
   entityPickerState.clear();
   renderGlobalSettings();
   renderRooms();
+  loadWindowStats();
 }
 
 function getDayLabel(day) {
@@ -3261,6 +3417,7 @@ async function init() {
   try {
     await refreshAll();
     await setupLiveUpdates();
+    setInterval(loadWindowStats, 60000);
     setStatus(t("status_loaded"), "ok");
   } catch (error) {
     console.error(error);

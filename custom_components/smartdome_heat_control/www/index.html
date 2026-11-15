@@ -368,6 +368,14 @@
       cursor: not-allowed;
     }
 
+    .window-stats .ws-room { margin: 0 0 16px; }
+    .window-stats .ws-name { font-weight: 600; margin-bottom: 6px; }
+    .window-stats .ws-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 8px; }
+    .window-stats .ws-tile { background: var(--panel); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 10px; }
+    .window-stats .ws-tile small { display: block; color: var(--muted); }
+    .window-stats .ws-bars { display: flex; align-items: flex-end; gap: 3px; height: 56px; }
+    .window-stats .ws-bar { flex: 1; min-height: 2px; background: var(--accent); border-radius: 3px 3px 0 0; opacity: .85; }
+    .window-stats .ws-empty { color: var(--muted); }
     .status {
       margin-bottom: 18px;
       padding: 12px 14px;
@@ -1204,6 +1212,65 @@
             </div>
           </div>
 
+          <!-- Fenster & Lüften -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_window">Fenster &amp; Lüften</div>
+            <div class="toggle">
+              <div class="toggle-text">
+                <strong data-i18n="window_lock_enabled">Sperrzeit für Fensterpause</strong>
+                <span data-i18n="window_lock_hint">In dieser Zeit startet keine neue Fensterpause (auch über Mitternacht).</span>
+              </div>
+              <div class="toggle-right">
+                <input id="window_lock_start" class="toggle-temp" type="time" value="22:00" />
+                <input id="window_lock_end" class="toggle-temp" type="time" value="06:00" />
+                <input id="window_lock_enabled" type="checkbox" />
+              </div>
+            </div>
+            <div class="toggle" style="margin-top:8px;">
+              <div class="toggle-text">
+                <strong data-i18n="window_reminder_enabled">Erinnerung bei langem Lüften</strong>
+                <span data-i18n="window_reminder_hint">Benachrichtigung, wenn ein Fenster länger als eingestellt offen ist (einmal pro Öffnen).</span>
+              </div>
+              <div class="toggle-right">
+                <input id="window_reminder_minutes" class="toggle-temp" type="number" min="1" max="240" step="1" value="15" />
+                <input id="window_reminder_enabled" type="checkbox" />
+              </div>
+            </div>
+            <div class="fields" style="margin-top:8px;">
+              <div class="field full">
+                <label for="window_reminder_services" data-i18n="window_reminder_services">Benachrichtigungsdienste (kommagetrennt)</label>
+                <input id="window_reminder_services" type="text" placeholder="notify.mobile_app_iphone, notify.alexa" />
+              </div>
+              <div class="field">
+                <label for="window_reminder_title" data-i18n="window_reminder_title">Titel</label>
+                <input id="window_reminder_title" type="text" />
+              </div>
+              <div class="field">
+                <label for="window_reminder_text" data-i18n="window_reminder_text">Text ({raum}, {minuten}, {fenster})</label>
+                <input id="window_reminder_text" type="text" />
+              </div>
+              <div class="field">
+                <label for="gas_kwh_per_m3" data-i18n="gas_kwh_per_m3">Energie pro m³ Gas (kWh)</label>
+                <input id="gas_kwh_per_m3" type="number" min="1" max="40" step="0.1" value="10" />
+              </div>
+              <div class="field">
+                <label for="heat_load_w_m2" data-i18n="heat_load_w_m2">Heizlast (W/m²)</label>
+                <input id="heat_load_w_m2" type="number" min="10" max="200" step="1" value="60" />
+              </div>
+              <div class="field">
+                <label for="design_outdoor_temp" data-i18n="design_outdoor_temp">Auslegungs-Außentemperatur (°C)</label>
+                <input id="design_outdoor_temp" type="number" min="-30" max="5" step="0.5" value="-12" />
+              </div>
+              <div class="field">
+                <label for="window_fallback_power_kw" data-i18n="window_fallback_power_kw">Feste Leistung ohne Raumfläche (kW)</label>
+                <input id="window_fallback_power_kw" type="number" min="0" max="20" step="0.1" value="1" />
+              </div>
+            </div>
+            <div class="footer-note" data-i18n="window_gas_note">
+              Die Gas-Ersparnis ist eine Schätzung aus Raumfläche, Heizlast und Außentemperatur (Sensor unter Außentemperatur-Abschaltung).
+            </div>
+          </div>
+
           <!-- Zeiten -->
           <div class="settings-group">
             <div class="settings-group-label" data-i18n="section_times">Zeiten</div>
@@ -1275,6 +1342,11 @@
           </div>
         </section>
       </div>
+
+      <section class="card" id="windowStatsCard">
+        <h2 data-i18n="window_stats_title">Fensterpausen &amp; Gas-Ersparnis</h2>
+        <div id="windowStatsBody" class="window-stats"></div>
+      </section>
 
       <section class="card rooms-card">
         <div class="rooms-header">
