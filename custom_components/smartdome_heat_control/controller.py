@@ -22,10 +22,23 @@ from .const import (
     ADAPTIVE_BUCKET_SHORT_MAX_SECS,
     CONF_AWAY_ENABLED,
     CONF_ROOM_AWAY_ENABLED,
+    CONF_ROOM_TARGET_RECONCILE_ENABLED,
     CONF_ROOM_EXTRA_THERMOSTATS,
+    CONF_ROOM_HYSTERESIS,
+    CONF_ROOM_SWITCH_ACTUATORS,
+    CONF_ROOM_SWITCH_MIN_OFF,
+    CONF_ROOM_SWITCH_MIN_ON,
     DEFAULT_ROOM_AWAY_ENABLED,
+    DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
     DEFAULT_ROOM_EXTRA_THERMOSTATS,
+    RECONCILE_MAX_ATTEMPTS,
+    RECONCILE_RETRY_INTERVAL,
+    RECONCILE_TOLERANCE,
+    DEFAULT_ROOM_SWITCH_ACTUATORS,
+    DEFAULT_ROOM_SWITCH_MIN_OFF,
+    DEFAULT_ROOM_SWITCH_MIN_ON,
     DOMAIN,
+    SWITCH_ACTUATOR_DOMAINS,
     SIGNAL_ROOM_STATE_UPDATED,
     CONF_BOOST_DELTA,
     CONF_OUTDOOR_SENSOR,
@@ -33,18 +46,20 @@ from .const import (
     CONF_OUTDOOR_TEMP_CUTOFF_ENABLED,
     CONF_OUTDOOR_CUTOFF_HYSTERESIS,
     CONF_OUTDOOR_MIN_ROOM_TEMPERATURE,
-    DEFAULT_OUTDOOR_TEMP_CUTOFF,
-    DEFAULT_OUTDOOR_TEMP_CUTOFF_ENABLED,
     DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS,
     DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE,
+    DEFAULT_OUTDOOR_TEMP_CUTOFF,
+    DEFAULT_OUTDOOR_TEMP_CUTOFF_ENABLED,
     CONF_CIRCUIT_CONTROL_TYPE,
     CONF_CIRCUIT_ENABLED,
+    CONF_CIRCUIT_IDLE_TEMPERATURE,
     CONF_CIRCUIT_LABEL,
     CONF_CIRCUIT_MAIN_SENSOR,
     CONF_CIRCUIT_MAIN_SWITCH,
     CONF_CIRCUIT_MAIN_THERMOSTAT,
     CONF_CIRCUITS,
     CONF_MAIN_CONTROL_TYPE,
+    CONF_MAIN_IDLE_TEMPERATURE,
     CONF_MAIN_SWITCH,
     CONTROL_TYPE_SWITCH,
     CONF_ENERGY_RESIDUAL_HEAT_HOLD,
@@ -141,11 +156,15 @@ from .const import (
     CONF_ROOM_CLIMATE_FAN_MODE,
     CONF_ROOM_CLIMATE_PRESET,
     CONF_ROOM_CLIMATE_HVAC_MODE,
+    CONF_ROOM_CLIMATE_HEAT_BOOST,
     DEFAULT_ROOM_COOL_TARGET_DAY,
     DEFAULT_ROOM_COOL_TARGET_NIGHT,
     DEFAULT_ROOM_CLIMATE_FAN_MODE,
     DEFAULT_ROOM_CLIMATE_PRESET,
     DEFAULT_ROOM_CLIMATE_HVAC_MODE,
+    DEFAULT_ROOM_CLIMATE_HEAT_BOOST,
+    MIN_MAIN_BOOST_DELTA,
+    MAIN_RESEND_INTERVAL,
 )
 from .window_stats import (
     WindowStats,
@@ -198,12 +217,14 @@ class SmartHeatingController:
 
         # Letzte echte Schreibzeit pro Thermostat
         self._last_command_sent_at: dict[str, float] = {}
+
+        # Raumsensor-Ausfall: seit wann fehlt der Messwert, welche Räume gelten
+        # als gestört (nur Räume mit eingetragenem Sensor).
         self._room_sensor_missing_since: dict[str, float] = {}
         self._room_sensor_fault: set[str] = set()
+
+        # Außensperre mit Hysterese: bleibt aktiv bis cutoff - hysterese
         self._outdoor_cutoff_latched = False
-        # Transient per-room comfort requests (not persisted to schedules).
-        self._comfort_override: dict[str, tuple[float, float]] = {}
-        self._comfort_override_seconds = 3600
 
         # Zuletzt wirklich angewendeter effektiver Zustand pro Raum
         self._last_applied_room_state: dict[str, str] = {}
@@ -217,6 +238,14 @@ class SmartHeatingController:
         self._last_hvac_mode: dict[str, str] = {}
         self._last_fan_mode: dict[str, str] = {}
         self._last_preset_mode: dict[str, str] = {}
+
+        # Letzter Schaltbefehl pro Schalter-Aktor (Zielzustand, Zeitstempel),
+        # damit nicht bei jeder Auswertung erneut gesendet wird, solange das
+        # Gerät den neuen Zustand noch nicht gemeldet hat.
+        self._switch_command_sent_at: dict[str, tuple[bool, float]] = {}
+
+        # Sollwert-Abgleich pro Thermostat (nur Räume mit aktivierter Option)
+        self._reconcile: dict[str, dict[str, Any]] = {}
 
         self._apply_config_defaults()
 
@@ -261,9 +290,11 @@ class SmartHeatingController:
                 if ws_id:
                     watch_entities.add(ws_id)
 
-            # Physical thermostat setpoint changes can request comfort without a phone.
-            for thermostat in self._room_thermostats(room):
-                watch_entities.add(thermostat)
+            # Bei selbst regelnden Räumen auch die Thermostate beobachten,
+            # damit _evaluate() greift sobald die CCU den State bestätigt.
+            if self._is_self_regulating_room(room) or self._reconcile_enabled(room):
+                for thermostat in self._room_thermostats(room):
+                    watch_entities.add(thermostat)
 
         if watch_entities:
             self._unsub.append(
@@ -303,7 +334,7 @@ class SmartHeatingController:
     def update_config(self, config: dict[str, Any]) -> None:
         """Config aktualisieren."""
         rooms = config.get("rooms", {})
-        _LOGGER.debug(
+        _LOGGER.warning(
             "[Smartdome Diagnose] UPDATE_CONFIG: Controller erhält neue Config. "
             "Räume: %s | heating_mode: %s | enabled: %s",
             {rid: r.get("label", rid) for rid, r in rooms.items()},
@@ -312,10 +343,11 @@ class SmartHeatingController:
         )
         self.config = config
         self._apply_config_defaults()
-        self._reset_runtime_states()
-        self._window_open_since.clear()
-        self._window_closed_since.clear()
-        self._window_paused_rooms.clear()
+        # Speichern setzt nur gesendete Befehle zurück, damit die neue Config
+        # sofort greift. Heizzustand und Fensterpause der Räume bleiben erhalten.
+        self._reset_room_cycles()
+        self._reset_command_caches()
+        self._forget_stale_room_states()
 
         if self._enabled:
             self.hass.async_create_task(self.async_start())
@@ -332,8 +364,12 @@ class SmartHeatingController:
             CONF_OUTDOOR_TEMP_CUTOFF_ENABLED, DEFAULT_OUTDOOR_TEMP_CUTOFF_ENABLED
         )
         self.config.setdefault(CONF_OUTDOOR_TEMP_CUTOFF, DEFAULT_OUTDOOR_TEMP_CUTOFF)
-        self.config.setdefault(CONF_OUTDOOR_CUTOFF_HYSTERESIS, DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS)
-        self.config.setdefault(CONF_OUTDOOR_MIN_ROOM_TEMPERATURE, DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE)
+        self.config.setdefault(
+            CONF_OUTDOOR_CUTOFF_HYSTERESIS, DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS
+        )
+        self.config.setdefault(
+            CONF_OUTDOOR_MIN_ROOM_TEMPERATURE, DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE
+        )
         self.config.setdefault(
             CONF_ENERGY_RESIDUAL_HEAT_HOLD,
             DEFAULT_ENERGY_RESIDUAL_HEAT_HOLD,
@@ -353,8 +389,16 @@ class SmartHeatingController:
                         list(DEFAULT_ROOM_EXTRA_THERMOSTATS),
                     )
                     room.setdefault(
+                        CONF_ROOM_SWITCH_ACTUATORS,
+                        list(DEFAULT_ROOM_SWITCH_ACTUATORS),
+                    )
+                    room.setdefault(
                         CONF_ROOM_AWAY_ENABLED,
                         DEFAULT_ROOM_AWAY_ENABLED,
+                    )
+                    room.setdefault(
+                        CONF_ROOM_TARGET_RECONCILE_ENABLED,
+                        DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
                     )
                     room.setdefault(
                         CONF_ROOM_CONTROL_PROFILE,
@@ -407,7 +451,7 @@ class SmartHeatingController:
         """Gelernte Werte in den Config Entry schreiben."""
         if self._persist_callback is not None:
             rooms = self.config.get("rooms", {})
-            _LOGGER.debug(
+            _LOGGER.warning(
                 "[Smartdome Diagnose] PERSIST_LEARNED_VALUES: Erstelle Persist-Task. "
                 "Räume: %s | heating_mode: %s | enabled: %s",
                 {rid: r.get("label", rid) for rid, r in rooms.items()},
@@ -475,6 +519,28 @@ class SmartHeatingController:
                     result.append(entity_id)
 
         return result
+
+    def _room_switch_actuators(self, room: dict[str, Any]) -> list[str]:
+        """Alle Schalter-Aktoren eines Raums (z.B. Relais für Fußbodenheizung)."""
+        result: list[str] = []
+        actuators = room.get(CONF_ROOM_SWITCH_ACTUATORS, [])
+        if isinstance(actuators, list):
+            for entity in actuators:
+                entity_id = self._as_entity_id(entity)
+                if (
+                    entity_id
+                    and entity_id.split(".", 1)[0] in SWITCH_ACTUATOR_DOMAINS
+                    and entity_id not in result
+                ):
+                    result.append(entity_id)
+        return result
+
+    def _room_tolerance(self, room: dict[str, Any], tolerance: float) -> float:
+        """Raumeigene Hysterese, sonst globale Toleranz."""
+        hysteresis = self._safe_float(room.get(CONF_ROOM_HYSTERESIS))
+        if hysteresis is not None and hysteresis > 0:
+            return hysteresis
+        return tolerance
 
     def _is_window_open(self, room: dict[str, Any]) -> bool:
         """Prüfen, ob mindestens ein Fensterkontakt im Raum offen ist."""
@@ -583,9 +649,11 @@ class SmartHeatingController:
                     continue
 
                 start = str(entry.get("start", "")).strip()
-                temperature = self._safe_float(entry.get("temperature"))
+                raw_temperature = entry.get("temperature")
+                is_gap = "temperature" in entry and raw_temperature is None
+                temperature = self._safe_float(raw_temperature)
 
-                if not start or temperature is None:
+                if not start or (temperature is None and not is_gap):
                     continue
 
                 if not self._is_valid_schedule_time(start):
@@ -594,7 +662,7 @@ class SmartHeatingController:
                 valid_entries.append(
                     {
                         "start": start[:5],
-                        "temperature": float(temperature),
+                        "temperature": None if is_gap else float(temperature),
                     }
                 )
 
@@ -644,11 +712,9 @@ class SmartHeatingController:
             start = str(entry.get("start", ""))[:5]
             temperature = self._safe_float(entry.get("temperature"))
 
-            if temperature is None:
-                continue
-
             if start <= now_hhmm:
-                active_temperature = float(temperature)
+                # temperature None = Lücke: kein Plan, Standard Tag/Nacht gilt
+                active_temperature = None if temperature is None else float(temperature)
             else:
                 break
 
@@ -693,25 +759,6 @@ class SmartHeatingController:
             return True
         return bool(room.get(CONF_ROOM_AWAY_ENABLED, DEFAULT_ROOM_AWAY_ENABLED))
 
-    def set_comfort_override(self, room_id: str, temperature: float) -> None:
-        """Request temporary room comfort without overwriting schedules/config."""
-        if room_id not in self._active_rooms():
-            return
-        requested = min(30.0, max(5.0, float(temperature)))
-        expires = dt_util.now().timestamp() + self._comfort_override_seconds
-        self._comfort_override[room_id] = (requested, expires)
-        self._evaluate()
-
-    def _active_comfort_target(self, room_id: str) -> float | None:
-        entry = self._comfort_override.get(room_id)
-        if entry is None:
-            return None
-        target, expires = entry
-        if dt_util.now().timestamp() >= expires:
-            self._comfort_override.pop(room_id, None)
-            return None
-        return target
-
     def get_room_status(self, room_id: str) -> dict[str, Any]:
         """Aktuellen Raumstatus für Entities (z.B. sensor.py) liefern."""
         room = self.config.get(CONF_ROOMS, {}).get(room_id)
@@ -727,49 +774,81 @@ class SmartHeatingController:
 
         enabled = bool(room.get(CONF_ROOM_ENABLED, True))
         last_state = self._last_room_states.get(room_id, {})
-
         current_status = last_state.get(
             "state", self._room_state.get(room_id, ROOM_STATE_IDLE)
         )
-        comfort_target = self._active_comfort_target(room_id)
+
         if not enabled:
             reason = "disabled"
         elif room_id in self._room_sensor_fault:
             reason = "sensor_fault"
         elif last_state.get("pause_active"):
             reason = "window_pause"
-        elif comfort_target is not None:
-            reason = "comfort_override"
-        elif last_state.get("outdoor_minimum_active"):
+        elif last_state.get("outdoor_cutoff_active"):
             reason = (
                 "minimum_temperature_heating"
                 if current_status == ROOM_STATE_HEATING
                 else "outdoor_cutoff"
             )
+        elif current_status == ROOM_STATE_HEATING:
+            reason = "heating"
+        elif current_status == ROOM_STATE_RESIDUAL_HOLD:
+            reason = "residual_hold"
         else:
-            reason = "heating" if current_status == ROOM_STATE_HEATING else "normal_idle"
+            reason = "normal_idle"
 
         return {
             "state": current_status if enabled else "off",
             "control_reason": reason,
             "target_temperature": last_state.get("target"),
+            "control_target_temperature": last_state.get("control_target"),
             "current_temperature": last_state.get("actual"),
             "heating_mode": self._get_room_heating_mode(room),
             "enabled": enabled,
             "away_active": self._is_room_away_active(room),
             "outdoor_cutoff_active": last_state.get("outdoor_cutoff_active", False),
             "outdoor_minimum_active": last_state.get("outdoor_minimum_active", False),
-            "control_target_temperature": last_state.get("control_target"),
             "sensor_fault": room_id in self._room_sensor_fault,
             "window_open": self._is_window_open(room),
             "window_pause_active": bool(last_state.get("pause_active")),
             "thermostats": self._room_thermostats(room),
-            "comfort_override_active": comfort_target is not None,
-            "comfort_override_target": comfort_target,
-            "comfort_override_remaining_seconds": max(
-                0, round(self._comfort_override[room_id][1] - dt_util.now().timestamp())
-            ) if comfort_target is not None else 0,
         }
+
+    def get_panel_room_status(self) -> dict[str, dict[str, Any]]:
+        """Kompakter Live-Status aller Räume für die Kacheln im Panel."""
+        rooms = self.config.get(CONF_ROOMS, {})
+        if not isinstance(rooms, dict):
+            return {}
+
+        cooling_active = self._is_cooling_active()
+        result: dict[str, dict[str, Any]] = {}
+        for room_id, room in rooms.items():
+            if not isinstance(room, dict):
+                continue
+            status = self.get_room_status(room_id)
+            # Kühlen läuft nur über eine Klimaanlage, sonst gilt der Heiz-Sollwert.
+            cooling = cooling_active and bool(
+                self._as_entity_id(room.get(CONF_ROOM_CLIMATE_ENTITY, ""))
+            )
+            if cooling:
+                target = float(
+                    room.get(CONF_ROOM_COOL_TARGET_DAY, DEFAULT_ROOM_COOL_TARGET_DAY)
+                )
+            else:
+                target = status.get("control_target_temperature")
+                if target is None:
+                    target = self._effective_target_for_room(room)
+            result[room_id] = {
+                "state": status.get("state"),
+                "reason": status.get("control_reason"),
+                "target": target,
+                "cooling": cooling,
+                "cooling_active": cooling_active,
+                "away_active": status.get("away_active"),
+                "outdoor_cutoff_active": status.get("outdoor_cutoff_active"),
+                "outdoor_minimum_active": status.get("outdoor_minimum_active"),
+            }
+        return result
 
     def get_room_setpoint_key(self, room_id: str) -> str | None:
         """Config-Key, den ein manuell gesetzter Sollwert gerade ändern soll.
@@ -838,6 +917,115 @@ class SmartHeatingController:
             if min_temp is not None:
                 return min_temp
         return 5.0
+
+    def _main_idle_target(self, entity_id: str, configured: Any) -> float:
+        """Sollwert des Hauptthermostats/Heizkreises ohne Wärmebedarf.
+
+        Ist eine Leerlauf-Temperatur eingestellt, gilt diese (begrenzt auf den
+        vom Gerät gemeldeten Bereich, sonst lehnt Home Assistant den Befehl ab).
+        Ohne Einstellung: Mindesttemperatur des Geräts.
+        """
+        idle = self._safe_float(configured)
+        if idle is None:
+            return self._thermostat_min_temp(entity_id)
+        state = self.hass.states.get(entity_id)
+        if state:
+            min_temp = self._safe_float(state.attributes.get("min_temp"))
+            max_temp = self._safe_float(state.attributes.get("max_temp"))
+            if min_temp is not None:
+                idle = max(idle, min_temp)
+            if max_temp is not None:
+                idle = min(idle, max_temp)
+        return idle
+
+    def _climate_max_temp(self, entity_id: str) -> float:
+        """Maximale Solltemperatur einer Klimaanlage lesen."""
+        state = self.hass.states.get(entity_id)
+        if state:
+            max_temp = self._safe_float(state.attributes.get("max_temp"))
+            if max_temp is not None:
+                return max_temp
+        return 30.0
+
+    def _room_needs_heat(
+        self,
+        room: dict[str, Any],
+        rstate: dict[str, Any],
+        include_residual: bool = False,
+    ) -> bool:
+        """Fordert der Raum Wärme vom Hauptthermostat/Heizkreis an?
+
+        Räume mit Sensor: Zustandsmaschine. Räume ohne Sensor regeln über das
+        Ventil selbst (Zustand bleibt idle); heizt das Ventil, braucht der Raum
+        trotzdem Wärme vom Heizkreis.
+        """
+        # Heizt der Raum über die Klimaanlage, bleiben seine Ventile zu: Er nimmt
+        # dem Heizkreis keine Wärme ab und fordert deshalb auch keine an.
+        if self._as_entity_id(room.get(CONF_ROOM_CLIMATE_ENTITY, "")) and room.get(
+            CONF_ROOM_USE_CLIMATE, False
+        ):
+            return False
+        states = (ROOM_STATE_HEATING, ROOM_STATE_RESIDUAL_HOLD) if include_residual else (ROOM_STATE_HEATING,)
+        if rstate.get("state") in states:
+            return True
+        if (
+            self._as_entity_id(room.get(CONF_ROOM_SENSOR))
+            or rstate.get("pause_active")
+            or rstate.get("outdoor_cutoff_active")
+        ):
+            return False
+        for thermostat in self._room_thermostats(room):
+            thermostat_state = self.hass.states.get(thermostat)
+            if thermostat_state and thermostat_state.attributes.get("hvac_action") == "heating":
+                return True
+        return False
+
+    def _main_heating_target(
+        self,
+        entity_id: str,
+        sensor_id: str | None,
+        boost_delta: float,
+        fallback_target: float,
+    ) -> float:
+        """Sollwert des Hauptthermostats bei Wärmebedarf.
+
+        Das Thermostat regelt nach seiner eigenen Temperatur (z. B. 22 °C im
+        Wohnzimmer), ein separater Hauptsensor kann davon abweichen. Daher gilt
+        die höhere beider Messungen als Basis, plus mindestens
+        ``MIN_MAIN_BOOST_DELTA``, damit es sicher einschaltet.
+        """
+        readings: list[float] = []
+        sensor_temp = self._get_state_float(sensor_id) if sensor_id else None
+        if sensor_temp is not None:
+            readings.append(sensor_temp)
+        state = self.hass.states.get(entity_id)
+        if state:
+            own_temp = self._safe_float(state.attributes.get("current_temperature"))
+            if own_temp is not None:
+                readings.append(own_temp)
+        base = max(readings) if readings else fallback_target
+        target = base + max(boost_delta, MIN_MAIN_BOOST_DELTA)
+        return min(target, self._climate_max_temp(entity_id))
+
+    def _resend_if_main_target_lost(self, entity_id: str) -> None:
+        """Sollwert des Hauptthermostats erneut senden, wenn das Gerät ihn verloren hat.
+
+        Das Hauptthermostat gehört der Integration. Weicht sein gemeldeter
+        Sollwert vom zuletzt gesendeten ab (eigenes Zeitprogramm, Verstellen
+        am Gerät), wird der Befehl frühestens nach ``MAIN_RESEND_INTERVAL``
+        wiederholt.
+        """
+        desired = self._desired_targets.get(entity_id)
+        state = self.hass.states.get(entity_id)
+        if desired is None or state is None:
+            return
+        observed = self._safe_float(state.attributes.get("temperature"))
+        if observed is None or abs(observed - desired) < RECONCILE_TOLERANCE:
+            return
+        last_sent = self._last_command_sent_at.get(entity_id, 0.0)
+        if dt_util.now().timestamp() - last_sent < MAIN_RESEND_INTERVAL:
+            return
+        self._desired_targets.pop(entity_id, None)
 
     def _thermostat_target_step(self, entity_id: str) -> float:
         """Schrittweite des Thermostats lesen, fallback 0.5°C."""
@@ -916,25 +1104,10 @@ class SmartHeatingController:
         desired = self._round_to_step(float(temp), step)
         previous = self._desired_targets.get(entity_id)
 
-        now_ts = dt_util.now().timestamp()
-        # Reconcile the real device setpoint, not only our cached intent.
-        # A five-minute grace period avoids fighting delayed Bosch updates.
         if previous is not None and abs(previous - desired) < 0.01:
-            climate_state = self.hass.states.get(entity_id)
-            actual_target = (
-                self._safe_float(climate_state.attributes.get("temperature"))
-                if climate_state and climate_state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN)
-                else None
-            )
-            if actual_target is None or abs(actual_target - desired) < max(0.2, step * 0.5):
-                return
-            if now_ts - self._last_command_sent_at.get(entity_id, 0.0) < 300:
-                return
-            _LOGGER.warning(
-                "Thermostat %s: Sollwert-Abweichung (gewünscht %.1f, gemeldet %.1f); synchronisiere",
-                entity_id, desired, actual_target,
-            )
+            return
 
+        now_ts = dt_util.now().timestamp()
         last_sent = self._last_command_sent_at.get(entity_id, 0.0)
 
         if min_interval > 0 and (now_ts - last_sent) < min_interval:
@@ -955,6 +1128,108 @@ class SmartHeatingController:
             )
         )
 
+    # --- Sollwert-Abgleich (opt-in pro Raum) ------------------------------
+
+    def _reconcile_enabled(self, room: dict[str, Any]) -> bool:
+        return bool(
+            room.get(
+                CONF_ROOM_TARGET_RECONCILE_ENABLED,
+                DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
+            )
+        )
+
+    def _note_possible_manual_change(
+        self, entity_id: str, old_target: float, new_target: float
+    ) -> None:
+        """Manuelle Änderung am Ventil erkennen und respektieren.
+
+        Ein Ventil, das zuvor unseren Wert hatte und nun mindestens 0,5 °C
+        davon abweicht (ohne dass wir kürzlich gesendet haben), wird bis zur
+        nächsten Änderung unseres Sollwerts nicht überschrieben.
+        """
+        desired = self._desired_targets.get(entity_id)
+        if desired is None:
+            return
+        now_ts = dt_util.now().timestamp()
+        if abs(old_target - new_target) < RECONCILE_TOLERANCE:
+            return
+        if abs(old_target - desired) > RECONCILE_TOLERANCE:
+            return
+        if abs(new_target - desired) <= RECONCILE_TOLERANCE:
+            return
+        if now_ts - self._last_command_sent_at.get(entity_id, 0.0) <= 120:
+            return
+        tracker = self._reconcile.setdefault(entity_id, {})
+        tracker.update(
+            {"desired": desired, "attempts": 0, "last": now_ts, "hold": True}
+        )
+        _LOGGER.debug(
+            "Manuelle Änderung an %s erkannt (%.1f → %.1f), kein Abgleich bis zur nächsten Änderung",
+            entity_id,
+            old_target,
+            new_target,
+        )
+
+    def _reconcile_thermostat_target(self, entity_id: str) -> None:
+        """Prüfen, ob das Thermostat den gesendeten Sollwert übernommen hat.
+
+        Begrenzt: höchstens ``RECONCILE_MAX_ATTEMPTS`` Wiederholungen mit
+        Mindestabstand. Übernimmt das Gerät den Wert danach weiterhin nicht
+        (z. B. Maximalwert 28 °C), gilt es als begrenzend und wird bis zur
+        nächsten Änderung des Sollwerts in Ruhe gelassen – ohne Warnungen.
+        """
+        desired = self._desired_targets.get(entity_id)
+        state = self.hass.states.get(entity_id)
+        if desired is None or state is None:
+            return
+        observed = self._safe_float(state.attributes.get("temperature"))
+        if observed is None:
+            return
+
+        tracker = self._reconcile.get(entity_id)
+        if tracker is None or abs(float(tracker.get("desired", -999.0)) - desired) > 0.01:
+            tracker = {"desired": desired, "attempts": 0, "last": 0.0}
+            self._reconcile[entity_id] = tracker
+
+        if abs(observed - desired) < RECONCILE_TOLERANCE:
+            tracker.update({"attempts": 0, "hold": False, "limited": False})
+            return
+        if tracker.get("hold") or tracker.get("limited"):
+            return
+
+        now_ts = dt_util.now().timestamp()
+        if now_ts - self._last_command_sent_at.get(entity_id, 0.0) < RECONCILE_RETRY_INTERVAL:
+            return
+        if tracker["attempts"] >= RECONCILE_MAX_ATTEMPTS:
+            tracker["limited"] = True
+            _LOGGER.info(
+                "%s übernimmt Sollwert %.1f °C nicht (steht auf %.1f °C) – "
+                "gilt als begrenzt, kein weiterer Abgleich bis zur nächsten Änderung",
+                entity_id,
+                desired,
+                observed,
+            )
+            return
+
+        tracker["attempts"] += 1
+        tracker["last"] = now_ts
+        self._last_command_sent_at[entity_id] = now_ts
+        _LOGGER.debug(
+            "Sollwert-Abgleich %s: gesendet %.1f °C, Gerät %.1f °C (Versuch %d)",
+            entity_id,
+            desired,
+            observed,
+            tracker["attempts"],
+        )
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                CLIMATE_DOMAIN,
+                "set_temperature",
+                {"entity_id": entity_id, ATTR_TEMPERATURE: desired},
+                blocking=True,
+            )
+        )
+
     def _turn_switch_if_needed(self, entity_id: str, turn_on: bool) -> None:
         """Switch ein- oder ausschalten, aber nur wenn sich der Zustand ändert."""
         last = self._desired_targets.get(entity_id)
@@ -970,6 +1245,68 @@ class SmartHeatingController:
                 blocking=True,
             )
         )
+
+    def _set_room_switch_if_needed(
+        self,
+        room: dict[str, Any],
+        entity_id: str,
+        turn_on: bool,
+        force: bool = False,
+    ) -> None:
+        """Schalter-Aktor eines Raums schalten.
+
+        Es wird nur geschaltet, wenn der aktuelle Zustand abweicht. Mindest-
+        Laufzeit und Mindest-Pause schützen Relais und Stellantriebe vor
+        häufigem Takten; force=True (z.B. Fensterpause) umgeht diese Sperre.
+        """
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+
+        is_on = state.state == "on"
+        if is_on == turn_on:
+            self._switch_command_sent_at.pop(entity_id, None)
+            return
+
+        now_ts = dt_util.now().timestamp()
+
+        if not force:
+            if is_on:
+                min_minutes = self._safe_float(
+                    room.get(CONF_ROOM_SWITCH_MIN_ON, DEFAULT_ROOM_SWITCH_MIN_ON)
+                )
+            else:
+                min_minutes = self._safe_float(
+                    room.get(CONF_ROOM_SWITCH_MIN_OFF, DEFAULT_ROOM_SWITCH_MIN_OFF)
+                )
+            min_seconds = max(0.0, (min_minutes or 0.0) * 60.0)
+            if now_ts - state.last_changed.timestamp() < min_seconds:
+                return
+
+        # Befehl bereits unterwegs → höchstens alle 30 s wiederholen
+        pending = self._switch_command_sent_at.get(entity_id)
+        if pending is not None and pending[0] == turn_on and now_ts - pending[1] < 30:
+            return
+
+        self._switch_command_sent_at[entity_id] = (turn_on, now_ts)
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                entity_id.split(".", 1)[0],
+                "turn_on" if turn_on else "turn_off",
+                {"entity_id": entity_id},
+                blocking=True,
+            )
+        )
+
+    def _turn_off_disabled_room_switches(self) -> None:
+        """Schalter-Aktoren deaktivierter Räume ausschalten."""
+        rooms = self.config.get(CONF_ROOMS, {})
+        if not isinstance(rooms, dict):
+            return
+        for room in rooms.values():
+            if isinstance(room, dict) and not room.get(CONF_ROOM_ENABLED, True):
+                for actuator in self._room_switch_actuators(room):
+                    self._set_room_switch_if_needed(room, actuator, False, force=True)
 
     def _set_hvac_mode_if_needed(self, entity_id: str, hvac_mode: str) -> None:
         """HVAC-Modus setzen, aber nur wenn er sich geändert hat."""
@@ -1142,34 +1479,72 @@ class SmartHeatingController:
         step = self._thermostat_target_step(thermostat_id)
         return self._round_to_step(target_temp, step)
 
-    def _reset_runtime_states(self) -> None:
-        """Laufzeit-Heizzustände zurücksetzen."""
+    def _reset_room_cycles(self) -> None:
+        """Laufende Heizzyklen der Lernlogik beenden."""
         for room in self._active_rooms().values():
             room[CONF_ROOM_HEATING_CYCLE_ACTIVE] = False
             room[CONF_ROOM_CYCLE_TARGET_TEMP] = None
             room[CONF_ROOM_CYCLE_PEAK_TEMP] = None
             room[CONF_ROOM_CYCLE_PEAKED] = False
 
+    def _reset_command_caches(self) -> None:
+        """Vergessen, was zuletzt gesendet wurde, damit alles neu gesendet wird."""
         self._desired_targets.clear()
         self._last_computed_targets.clear()
-        self._room_state.clear()
-        self._last_room_states.clear()
-        self._residual_heat_hold_until.clear()
         self._last_command_sent_at.clear()
-        self._room_sensor_missing_since.clear()
-        self._room_sensor_fault.clear()
-        self._outdoor_cutoff_latched = False
         self._last_applied_room_state.clear()
         self._circuit_heating_active.clear()
         self._last_hvac_mode.clear()
         self._last_fan_mode.clear()
         self._last_preset_mode.clear()
+        self._switch_command_sent_at.clear()
+        self._reconcile.clear()
+
+    def _forget_stale_room_states(self) -> None:
+        """Zustände von Räumen löschen, die so nicht mehr geregelt werden."""
+        active_rooms = self._active_rooms()
+        for store in (
+            self._room_state,
+            self._last_room_states,
+            self._residual_heat_hold_until,
+            self._room_sensor_missing_since,
+            self._window_open_since,
+            self._window_closed_since,
+        ):
+            for room_id in [rid for rid in store if rid not in active_rooms]:
+                del store[room_id]
+        self._room_sensor_fault.intersection_update(active_rooms)
+        self._window_paused_rooms.intersection_update(active_rooms)
+
+        # Ohne Sensor würde der Zustand eingefroren: ein heizender Raum käme
+        # nie wieder aus HEATING heraus.
+        for room_id, room in active_rooms.items():
+            if not self._as_entity_id(room.get(CONF_ROOM_SENSOR)):
+                self._room_state.pop(room_id, None)
+                self._residual_heat_hold_until.pop(room_id, None)
+                self._room_sensor_missing_since.pop(room_id, None)
+                self._room_sensor_fault.discard(room_id)
+
+    def _reset_runtime_states(self) -> None:
+        """Laufzeit-Heizzustände zurücksetzen."""
+        self._reset_room_cycles()
+        self._reset_command_caches()
+        self._room_state.clear()
+        self._last_room_states.clear()
+        self._residual_heat_hold_until.clear()
+        self._room_sensor_missing_since.clear()
+        self._room_sensor_fault.clear()
+        self._outdoor_cutoff_latched = False
 
     def _restore_non_boost_targets(self) -> None:
         """Thermostate beim Deaktivieren auf normale Zielwerte zurücksetzen."""
         rooms = self._active_rooms()
 
         for room_id, room in rooms.items():
+            # Relais regeln nicht selbst → beim Deaktivieren ausschalten
+            for actuator in self._room_switch_actuators(room):
+                self._set_room_switch_if_needed(room, actuator, False, force=True)
+
             thermostats = self._room_thermostats(room)
             if not thermostats:
                 continue
@@ -1197,12 +1572,18 @@ class SmartHeatingController:
                 ct = self._as_entity_id(circuit.get(CONF_CIRCUIT_MAIN_THERMOSTAT))
                 if not ct:
                     continue
-                self._set_temp_if_needed(ct, self._thermostat_min_temp(ct))
+                self._set_temp_if_needed(
+                    ct,
+                    self._main_idle_target(ct, circuit.get(CONF_CIRCUIT_IDLE_TEMPERATURE)),
+                )
         else:
             main_thermostat = self._as_entity_id(self.config.get(CONF_MAIN_THERMOSTAT))
             if main_thermostat:
                 self._set_temp_if_needed(
-                    main_thermostat, self._thermostat_min_temp(main_thermostat)
+                    main_thermostat,
+                    self._main_idle_target(
+                        main_thermostat, self.config.get(CONF_MAIN_IDLE_TEMPERATURE)
+                    ),
                 )
 
     def _update_room_state(
@@ -1226,13 +1607,27 @@ class SmartHeatingController:
             return ROOM_STATE_IDLE
 
         if actual is None:
-            missing_since = self._room_sensor_missing_since.setdefault(room_id, now_ts)
-            if now_ts - missing_since >= 300:
-                # Fail safe after five minutes: stop indefinite boost/heating.
-                self._room_sensor_fault.add(room_id)
-                self._room_state[room_id] = ROOM_STATE_IDLE
-                self._residual_heat_hold_until.pop(room_id, None)
-                return ROOM_STATE_IDLE
+            # Sensor vorübergehend nicht verfügbar: aktuellen Zustand einfrieren.
+            # Wenn der Raum bereits heizte, weiter heizen – nicht abrupt stoppen,
+            # nur weil ein Sensor kurz "unavailable" meldet.
+            # Heizung STARTEN ohne Sensor ist nicht erlaubt (bleibt IDLE).
+            # Fehlt der Messwert eines eingetragenen Sensors länger als 5 min,
+            # gilt der Raum als gestört und heizt nicht mehr (kein Dauer-Boost).
+            # Räume ohne eingetragenen Sensor sind davon nicht betroffen.
+            if self._as_entity_id(room.get(CONF_ROOM_SENSOR)):
+                missing_since = self._room_sensor_missing_since.setdefault(
+                    room_id, now_ts
+                )
+                if now_ts - missing_since >= 300:
+                    if room_id not in self._room_sensor_fault:
+                        _LOGGER.warning(
+                            "Raum %s: Raumsensor seit 5 min ohne Messwert – Heizung gestoppt",
+                            room.get("label", room_id),
+                        )
+                    self._room_sensor_fault.add(room_id)
+                    self._room_state[room_id] = ROOM_STATE_IDLE
+                    self._residual_heat_hold_until.pop(room_id, None)
+                    return ROOM_STATE_IDLE
             return self._room_state.get(room_id, ROOM_STATE_IDLE)
 
         self._room_sensor_missing_since.pop(room_id, None)
@@ -1366,15 +1761,32 @@ class SmartHeatingController:
         if cutoff is None:
             cutoff = float(DEFAULT_OUTDOOR_TEMP_CUTOFF)
         hysteresis = self._safe_float(
-            self.config.get(CONF_OUTDOOR_CUTOFF_HYSTERESIS, DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS)
+            self.config.get(
+                CONF_OUTDOOR_CUTOFF_HYSTERESIS, DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS
+            )
         )
-        hysteresis = max(0.0, hysteresis if hysteresis is not None else DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS)
+        if hysteresis is None:
+            hysteresis = float(DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS)
+        hysteresis = max(0.0, hysteresis)
+        # Einschalten ab cutoff, wieder freigeben erst unter cutoff - hysterese,
+        # damit die Sperre bei schwankender Außentemperatur nicht flattert.
         if self._outdoor_cutoff_latched:
-            if outdoor_temp <= cutoff - hysteresis:
+            if outdoor_temp < cutoff - hysteresis:
                 self._outdoor_cutoff_latched = False
         elif outdoor_temp >= cutoff:
             self._outdoor_cutoff_latched = True
         return self._outdoor_cutoff_latched
+
+    def _outdoor_min_room_temperature(self) -> float | None:
+        """Mindest-Raumtemperatur während der Außensperre (None = aus)."""
+        minimum = self._safe_float(
+            self.config.get(
+                CONF_OUTDOOR_MIN_ROOM_TEMPERATURE, DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE
+            )
+        )
+        if minimum is None or minimum <= 0:
+            return None
+        return minimum
 
     def _evaluate(self) -> None:
         """Heizlogik auswerten."""
@@ -1398,54 +1810,60 @@ class SmartHeatingController:
         room_states: dict[str, dict[str, Any]] = {}
 
         outdoor_cutoff_active = self._is_outdoor_cutoff_active()
+        outdoor_minimum = (
+            self._outdoor_min_room_temperature() if outdoor_cutoff_active else None
+        )
         if outdoor_cutoff_active:
-            _LOGGER.debug("Außentemperatur-Abschaltung aktiv – Heizung gesperrt")
+            _LOGGER.debug(
+                "Außentemperatur-Abschaltung aktiv – Mindesttemperatur: %s",
+                outdoor_minimum,
+            )
 
         for room_id, room in rooms.items():
             actual = self._room_temp(room)
             target = self._effective_target_for_room(room)
             pause_active = self._window_pause_active(room_id, room)
             mode = self._get_room_heating_mode(room)
+            room_tolerance = self._room_tolerance(room, tolerance)
 
             predicted_overshoot = (
-                self._get_predicted_overshoot(room, tolerance)
+                self._get_predicted_overshoot(room, room_tolerance)
                 if mode == HEATING_MODE_ADAPTIVE
                 else 0.0
             )
 
-            minimum = self._safe_float(self.config.get(
-                CONF_OUTDOOR_MIN_ROOM_TEMPERATURE,
-                DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE,
-            ))
-            if minimum is None:
-                minimum = float(DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE)
-            comfort_target = self._active_comfort_target(room_id)
+            # Bei Außensperre mit Mindesttemperatur wird nur bis zu dieser
+            # reduzierten Temperatur geregelt. Die Zustandsmaschine wird genau
+            # einmal gegen den wirksamen Sollwert ausgewertet.
             control_target = (
-                comfort_target if comfort_target is not None
-                else min(target, minimum) if outdoor_cutoff_active else target
+                min(target, outdoor_minimum) if outdoor_minimum is not None else target
             )
-            minimum_active = (
-                comfort_target is None and outdoor_cutoff_active and control_target < target
-            )
+            minimum_active = outdoor_minimum is not None and control_target < target
 
-            # Evaluate the state machine exactly once against its effective target.
-            # Evaluating first at 22°C and then at 19°C could spuriously turn
-            # the minimum-temperature heating on inside its hysteresis band.
             state = self._update_room_state(
                 room_id=room_id,
                 room=room,
                 target=control_target,
                 actual=actual,
                 pause_active=pause_active,
-                tolerance=tolerance,
+                tolerance=room_tolerance,
                 predicted_overshoot=0.0 if minimum_active else predicted_overshoot,
             )
+
+            # Außentemperatur-Abschaltung ohne Mindesttemperatur: Heizung
+            # unterdrücken, Raumthermostate auf normalem Idle-Sollwert belassen.
+            if (
+                outdoor_cutoff_active
+                and outdoor_minimum is None
+                and state == ROOM_STATE_HEATING
+            ):
+                state = ROOM_STATE_IDLE
+                self._room_state[room_id] = ROOM_STATE_IDLE
 
             room_states[room_id] = {
                 "actual": actual,
                 "target": target,
                 "control_target": control_target,
-                "comfort_target": comfort_target,
                 "state": state,
                 "pause_active": pause_active,
                 "outdoor_cutoff_active": outdoor_cutoff_active,
@@ -1479,8 +1897,15 @@ class SmartHeatingController:
         room_managed_thermostats = {
             thermostat
             for room in rooms.values()
-            for thermostat in self._room_thermostats(room)
+            for thermostat in (
+                self._room_thermostats(room) + self._room_switch_actuators(room)
+            )
         }
+
+        # Ist das Hauptthermostat zugleich Raum-Thermostat (z. B. im Wohnzimmer), gilt bei
+        # Wärmebedarf eines anderen Raums der Mindest-Sollwert hier als Untergrenze in der
+        # Raumlogik, sonst bliebe es auf dem Sollwert seines eigenen Raums (zu warm → kein Heizen).
+        main_heat_overrides: dict[str, float] = {}
 
         circuits = self.config.get(CONF_CIRCUITS, {})
         if circuits and isinstance(circuits, dict):
@@ -1500,33 +1925,55 @@ class SmartHeatingController:
                         if circuit_control_type == CONTROL_TYPE_SWITCH:
                             self._turn_switch_if_needed(ct, False)
                         else:
-                            self._set_temp_if_needed(ct, self._thermostat_min_temp(ct))
+                            self._set_temp_if_needed(
+                                ct,
+                                self._main_idle_target(
+                                    ct, circuit.get(CONF_CIRCUIT_IDLE_TEMPERATURE)
+                                ),
+                            )
                     continue
                 circuit_control_type = circuit.get(CONF_CIRCUIT_CONTROL_TYPE, "thermostat")
                 if circuit_control_type == CONTROL_TYPE_SWITCH:
                     ct = self._as_entity_id(circuit.get(CONF_CIRCUIT_MAIN_SWITCH))
                 else:
                     ct = self._as_entity_id(circuit.get(CONF_CIRCUIT_MAIN_THERMOSTAT))
-                if not ct or ct in room_managed_thermostats:
+                if not ct:
                     continue
                 circuit_room_states = {
                     rid: rs for rid, rs in room_states.items()
                     if rooms[rid].get(CONF_ROOM_CIRCUIT_ID) == circuit_id
                 }
+                if ct in room_managed_thermostats:
+                    if circuit_control_type != CONTROL_TYPE_SWITCH and any(
+                        self._room_needs_heat(rooms[rid], rs, include_residual=True)
+                        for rid, rs in circuit_room_states.items()
+                    ):
+                        main_heat_overrides[ct] = self._main_heating_target(
+                            ct,
+                            self._as_entity_id(circuit.get(CONF_CIRCUIT_MAIN_SENSOR)),
+                            boost_delta,
+                            max(rs["target"] for rs in circuit_room_states.values()),
+                        )
+                    continue
                 if not circuit_room_states:
-                    # Keine Räume in diesem Kreis → Schalten ausschalten / min_temp
+                    # Keine Räume in diesem Kreis → Schalter aus / Leerlauf-Temperatur
                     self._desired_targets.pop(ct, None)
                     if circuit_control_type == CONTROL_TYPE_SWITCH:
                         self._turn_switch_if_needed(ct, False)
                     else:
-                        self._set_temp_if_needed(ct, self._thermostat_min_temp(ct))
+                        self._set_temp_if_needed(
+                            ct,
+                            self._main_idle_target(
+                                ct, circuit.get(CONF_CIRCUIT_IDLE_TEMPERATURE)
+                            ),
+                        )
                     continue
                 # RESIDUAL_HOLD zählt ebenfalls als "braucht Wärme":
                 # Im Energy-Modus halten Räume den Heizkreis nach Zielerreichung
                 # noch kurz aktiv, damit Restwärme verteilt wird.
                 any_circuit_needs_heat = any(
-                    rs["state"] in (ROOM_STATE_HEATING, ROOM_STATE_RESIDUAL_HOLD)
-                    for rs in circuit_room_states.values()
+                    self._room_needs_heat(rooms[rid], rs, include_residual=True)
+                    for rid, rs in circuit_room_states.items()
                 )
                 # Übergang heating → idle: _desired_targets löschen damit
                 # Befehl garantiert gesendet wird.
@@ -1549,48 +1996,56 @@ class SmartHeatingController:
                 if circuit_control_type == CONTROL_TYPE_SWITCH:
                     self._turn_switch_if_needed(ct, any_circuit_needs_heat)
                 else:
-                    # Read circuit sensor once – used for both heating and idle target.
-                    ct_sensor_id = self._as_entity_id(
-                        circuit.get(CONF_CIRCUIT_MAIN_SENSOR)
-                    )
-                    ct_current = (
-                        self._get_state_float(ct_sensor_id) if ct_sensor_id else None
-                    )
-                    if ct_current is None:
-                        ct_state = self.hass.states.get(ct)
-                        if ct_state:
-                            ct_current = self._safe_float(
-                                ct_state.attributes.get("current_temperature")
-                            )
                     if any_circuit_needs_heat:
-                        # Dynamic boost: setpoint = current sensor + boost_delta so the
-                        # heating circuit turns ON reliably regardless of room targets.
-                        if ct_current is not None:
-                            circuit_target = ct_current + boost_delta
-                        else:
-                            circuit_target = (
-                                max(rs["target"] for rs in circuit_room_states.values())
-                                + boost_delta
-                            )
+                        # Mindestens MIN_MAIN_BOOST_DELTA über der Eigentemperatur
+                        # des Thermostats, damit der Heizkreis sicher einschaltet.
+                        circuit_target = self._main_heating_target(
+                            ct,
+                            self._as_entity_id(circuit.get(CONF_CIRCUIT_MAIN_SENSOR)),
+                            boost_delta,
+                            max(rs["target"] for rs in circuit_room_states.values()),
+                        )
                     else:
-                        # Idle: set 5°C below current sensor so the circuit shuts off
-                        # reliably even if the thermostat has no min_temp attribute.
-                        if ct_current is not None:
-                            circuit_target = ct_current - 5.0
-                        else:
-                            circuit_target = self._thermostat_min_temp(ct)
+                        # Idle: eingestellte Leerlauf-Temperatur, sonst Mindesttemperatur.
+                        circuit_target = self._main_idle_target(
+                            ct, circuit.get(CONF_CIRCUIT_IDLE_TEMPERATURE)
+                        )
+                    self._resend_if_main_target_lost(ct)
                     self._set_temp_if_needed(ct, circuit_target)
-        else:
-            # Single-circuit fallback: use global main_thermostat or main_switch
+
+        # Globales Hauptthermostat: zuständig für alle Räume ohne (existierenden)
+        # Heizkreis ("Kein Kreis (global)"), auch wenn daneben Heizkreise angelegt sind.
+        multi_circuit = bool(circuits) and isinstance(circuits, dict)
+        circuit_outputs: set[str] = set()
+        if multi_circuit:
+            for circuit in circuits.values():
+                if not isinstance(circuit, dict):
+                    continue
+                if circuit.get(CONF_CIRCUIT_CONTROL_TYPE, "thermostat") == CONTROL_TYPE_SWITCH:
+                    output = self._as_entity_id(circuit.get(CONF_CIRCUIT_MAIN_SWITCH))
+                else:
+                    output = self._as_entity_id(circuit.get(CONF_CIRCUIT_MAIN_THERMOSTAT))
+                if output:
+                    circuit_outputs.add(output)
+        global_room_states = {
+            rid: rs
+            for rid, rs in room_states.items()
+            if not multi_circuit or rooms[rid].get(CONF_ROOM_CIRCUIT_ID) not in circuits
+        }
+
+        if global_room_states or not multi_circuit:
             any_room_needs_heat = any(
-                rs["state"] == ROOM_STATE_HEATING
-                for rs in room_states.values()
+                self._room_needs_heat(rooms[rid], rs)
+                for rid, rs in global_room_states.items()
             )
             main_control_type = self.config.get(CONF_MAIN_CONTROL_TYPE, "thermostat")
             if main_control_type == CONTROL_TYPE_SWITCH:
                 main_entity = self._as_entity_id(self.config.get(CONF_MAIN_SWITCH))
             else:
                 main_entity = self._as_entity_id(self.config.get(CONF_MAIN_THERMOSTAT))
+            if main_entity in circuit_outputs:
+                # Wird bereits als Heizkreis gesteuert, nicht doppelt ansteuern.
+                main_entity = None
             if main_entity and main_entity not in room_managed_thermostats:
                 # Übergang heating → idle: _desired_targets löschen damit
                 # Befehl garantiert gesendet wird.
@@ -1602,45 +2057,59 @@ class SmartHeatingController:
                 if main_control_type == CONTROL_TYPE_SWITCH:
                     self._turn_switch_if_needed(main_entity, any_room_needs_heat)
                 else:
-                    # Read main sensor once – used for both heating and idle target.
-                    main_sensor_id = self._as_entity_id(
-                        self.config.get(CONF_MAIN_SENSOR)
-                    )
-                    main_current = (
-                        self._get_state_float(main_sensor_id)
-                        if main_sensor_id
-                        else None
-                    )
-                    if main_current is None:
-                        mt_state = self.hass.states.get(main_entity)
-                        if mt_state:
-                            main_current = self._safe_float(
-                                mt_state.attributes.get("current_temperature")
-                            )
                     if any_room_needs_heat:
-                        # Dynamic boost: setpoint = current sensor + boost_delta so the
-                        # heating circuit turns ON reliably regardless of room targets.
-                        if main_current is not None:
-                            main_target = main_current + boost_delta
-                        else:
-                            main_target = (
-                                max(rs["target"] for rs in room_states.values())
-                                + boost_delta
-                            )
+                        # Mindestens MIN_MAIN_BOOST_DELTA über der Eigentemperatur
+                        # des Thermostats, damit der Heizkreis sicher einschaltet.
+                        main_target = self._main_heating_target(
+                            main_entity,
+                            self._as_entity_id(self.config.get(CONF_MAIN_SENSOR)),
+                            boost_delta,
+                            max(rs["target"] for rs in global_room_states.values()),
+                        )
                     else:
-                        # Idle: set 5°C below current sensor so the circuit shuts off
-                        # reliably even if the thermostat has no min_temp attribute.
-                        if main_current is not None:
-                            main_target = main_current - 5.0
-                        else:
-                            main_target = self._thermostat_min_temp(main_entity)
+                        # Idle: eingestellte Leerlauf-Temperatur, sonst Mindesttemperatur.
+                        main_target = self._main_idle_target(
+                            main_entity, self.config.get(CONF_MAIN_IDLE_TEMPERATURE)
+                        )
+                    self._resend_if_main_target_lost(main_entity)
                     self._set_temp_if_needed(main_entity, main_target)
+            elif (
+                main_entity
+                and main_control_type != CONTROL_TYPE_SWITCH
+                and any_room_needs_heat
+            ):
+                main_heat_overrides[main_entity] = self._main_heating_target(
+                    main_entity,
+                    self._as_entity_id(self.config.get(CONF_MAIN_SENSOR)),
+                    boost_delta,
+                    max(rs["target"] for rs in global_room_states.values()),
+                )
 
         for room_id, room in rooms.items():
             thermostats = self._room_thermostats(room)
             climate_entity = self._as_entity_id(room.get(CONF_ROOM_CLIMATE_ENTITY, ""))
             use_climate = bool(room.get(CONF_ROOM_USE_CLIMATE, False))
             cooling_active = self._is_cooling_active()
+
+            # --- Schalter-Aktoren (Relais, z.B. Fußbodenheizung) ---
+            # An nur im Zustand HEATING; Restwärme-Halten, Leerlauf, Kühlen
+            # und Heizen über Klimaanlage → aus. Fensterpause schaltet sofort.
+            switch_actuators = self._room_switch_actuators(room)
+            if switch_actuators:
+                rstate = room_states.get(room_id, {})
+                relay_on = (
+                    rstate.get("state") == ROOM_STATE_HEATING
+                    and not rstate.get("pause_active")
+                    and not cooling_active
+                    and not (climate_entity and use_climate)
+                )
+                for actuator in switch_actuators:
+                    self._set_room_switch_if_needed(
+                        room,
+                        actuator,
+                        relay_on,
+                        force=bool(rstate.get("pause_active")),
+                    )
 
             # --- Klimaanlage / Kühllogik (#69 + #70) ---
             if climate_entity:
@@ -1657,35 +2126,65 @@ class SmartHeatingController:
                     if preset:
                         self._set_preset_mode_if_needed(climate_entity, preset)
                     self._set_temp_if_needed(climate_entity, cool_target)
-                    # Heizventile ausschalten
+                    # Heizventile ausschalten (nicht die Klimaanlage selbst)
                     for thermostat in thermostats:
-                        self._set_temp_if_needed(
-                            thermostat, self._thermostat_min_temp(thermostat)
-                        )
+                        if thermostat != climate_entity:
+                            self._set_temp_if_needed(
+                                thermostat, self._thermostat_min_temp(thermostat)
+                            )
                     continue
                 elif use_climate:
-                    # Climate heating must obey window pauses, missing sensors
-                    # and the same outdoor minimum target as radiator heating.
-                    if (
-                        rstate.get("pause_active")
-                        or room_id in self._room_sensor_fault
-                        or rstate.get("state") != ROOM_STATE_HEATING
-                    ):
-                        self._set_hvac_mode_if_needed(climate_entity, "off")
-                    else:
-                        heat_target = float(
-                            rstate.get(
-                                "control_target",
-                                room.get(CONF_ROOM_TARGET_DAY, DEFAULT_TARGET_DAY),
+                    heat_boost = bool(
+                        room.get(CONF_ROOM_CLIMATE_HEAT_BOOST, DEFAULT_ROOM_CLIMATE_HEAT_BOOST)
+                    )
+                    has_sensor = bool(self._as_entity_id(room.get(CONF_ROOM_SENSOR)))
+
+                    if heat_boost and has_sensor:
+                        # Boost-Modus: volle Leistung solange HEATING, sonst komplett aus.
+                        # Erfordert Raumsensor – die Zustandsmaschine übernimmt die Hysterese.
+                        climate_heating = rstate.get("state") == ROOM_STATE_HEATING
+                        if climate_heating:
+                            if self._last_hvac_mode.get(climate_entity) != "heat":
+                                self._desired_targets.pop(climate_entity, None)
+                            self._set_hvac_mode_if_needed(climate_entity, "heat")
+                            self._set_temp_if_needed(
+                                climate_entity, self._climate_max_temp(climate_entity)
                             )
-                        )
-                        self._set_hvac_mode_if_needed(climate_entity, "heat")
-                        self._set_temp_if_needed(climate_entity, heat_target)
-                    # Heizventile ausschalten
+                        else:
+                            self._set_hvac_mode_if_needed(climate_entity, "off")
+                    else:
+                        # Normaler use_climate-Modus: an nur im Zustand HEATING, sonst aus.
+                        # Ohne Raumsensor regelt die Klimaanlage selbst auf den Sollwert.
+                        if has_sensor:
+                            climate_heating = rstate.get("state") == ROOM_STATE_HEATING
+                        else:
+                            climate_heating = not (
+                                rstate.get("pause_active")
+                                or (
+                                    rstate.get("outdoor_cutoff_active")
+                                    and outdoor_minimum is None
+                                )
+                            )
+                        if climate_heating:
+                            heat_target = float(
+                                rstate.get(
+                                    "control_target",
+                                    room.get(CONF_ROOM_TARGET_DAY, DEFAULT_TARGET_DAY),
+                                )
+                            )
+                            # Beim Einschalten Sollwert garantiert erneut senden.
+                            if self._last_hvac_mode.get(climate_entity) != "heat":
+                                self._desired_targets.pop(climate_entity, None)
+                            self._set_hvac_mode_if_needed(climate_entity, "heat")
+                            self._set_temp_if_needed(climate_entity, heat_target)
+                        else:
+                            self._set_hvac_mode_if_needed(climate_entity, "off")
+                    # Heizventile ausschalten (nicht die Klimaanlage selbst)
                     for thermostat in thermostats:
-                        self._set_temp_if_needed(
-                            thermostat, self._thermostat_min_temp(thermostat)
-                        )
+                        if thermostat != climate_entity:
+                            self._set_temp_if_needed(
+                                thermostat, self._thermostat_min_temp(thermostat)
+                            )
                     continue
                 else:
                     # Klimaanlage vorhanden aber nicht verwendet → ausschalten
@@ -1703,13 +2202,18 @@ class SmartHeatingController:
                 room.get(CONF_ROOM_THERMOSTAT_OFFSET, DEFAULT_ROOM_THERMOSTAT_OFFSET)
             )
             effective_state = ROOM_STATE_IDLE
+            minimum_closes_valve = (
+                room_state["outdoor_minimum_active"]
+                and room_state["actual"] is not None
+                and state != ROOM_STATE_HEATING
+            )
 
             for thermostat in thermostats:
                 if room_state["pause_active"]:
                     room_target = self._thermostat_min_temp(thermostat)
                     effective_state = ROOM_STATE_WINDOW_PAUSE
                 elif room_id in self._room_sensor_fault:
-                    # Do not keep heating when the only room sensor is lost.
+                    # Raumsensor ausgefallen → nicht blind weiterheizen
                     room_target = self._thermostat_min_temp(thermostat)
                     effective_state = ROOM_STATE_IDLE
                 elif state == ROOM_STATE_HEATING:
@@ -1732,22 +2236,33 @@ class SmartHeatingController:
                         target,
                     )
                     effective_state = ROOM_STATE_RESIDUAL_HOLD
+                elif minimum_closes_valve:
+                    # Außensperre mit Mindesttemperatur: Ventil zu, bis die
+                    # Mindesttemperatur unterschritten wird.
+                    room_target = self._thermostat_min_temp(thermostat)
+                    effective_state = ROOM_STATE_IDLE
                 else:
-                    if room_state["outdoor_minimum_active"]:
-                        room_target = self._thermostat_min_temp(thermostat)
-                    else:
-                        room_target = self._get_idle_target_for_room(
-                            room_id, room, thermostat, target,
-                        )
+                    # Ohne Raumsensor regelt das Ventil selbst – bei aktiver
+                    # Mindesttemperatur dann auf diese statt auf den Sollwert.
+                    room_target = self._get_idle_target_for_room(
+                        room_id,
+                        room,
+                        thermostat,
+                        room_state["control_target"],
+                    )
                     effective_state = ROOM_STATE_IDLE
 
-                if (
-                    not room_state["pause_active"]
-                    and room_id not in self._room_sensor_fault
-                    and not (room_state["outdoor_minimum_active"] and state != ROOM_STATE_HEATING)
-                    and thermostat_offset != 0.0
-                ):
+                at_min_temp = (
+                    room_state["pause_active"]
+                    or room_id in self._room_sensor_fault
+                    or minimum_closes_valve
+                )
+                if not at_min_temp and thermostat_offset != 0.0:
                     room_target = room_target + thermostat_offset
+
+                override_target = main_heat_overrides.get(thermostat)
+                if override_target is not None and not room_state["pause_active"]:
+                    room_target = max(room_target, override_target)
 
                 desired = self._round_to_step(
                     float(room_target),
@@ -1778,9 +2293,15 @@ class SmartHeatingController:
                         min_interval=min_interval,
                     )
 
+            if self._reconcile_enabled(room):
+                for thermostat in thermostats:
+                    self._reconcile_thermostat_target(thermostat)
+
             # Raumzustand erst nach Verarbeitung ALLER Ventile aktualisieren, damit
             # jedes Ventil den Zustandswechsel (state_changed) korrekt erkennt.
             self._last_applied_room_state[room_id] = effective_state
+
+        self._turn_off_disabled_room_switches()
 
         self._last_room_states = room_states
         async_dispatcher_send(self.hass, SIGNAL_ROOM_STATE_UPDATED, room_states)
@@ -1790,34 +2311,27 @@ class SmartHeatingController:
 
     @callback
     def _on_state_change(self, event: Event) -> None:
-        """Detect external setpoint increases, then evaluate room demand."""
+        """Bei Sensor-Änderung sofort neu bewerten.
+
+        Bei Thermostaten von Räumen mit aktiviertem Sollwert-Abgleich wird
+        zusätzlich geprüft, ob der Sollwert am Gerät manuell geändert wurde.
+        """
         entity_id = event.data.get("entity_id")
         old = event.data.get("old_state")
         new = event.data.get("new_state")
-        if entity_id and old and new:
+        if entity_id and old is not None and new is not None:
             old_target = self._safe_float(old.attributes.get("temperature"))
             new_target = self._safe_float(new.attributes.get("temperature"))
-            now_ts = dt_util.now().timestamp()
             if (
-                old_target is not None and new_target is not None
-                and new_target - old_target >= 0.5
-                and now_ts - self._last_command_sent_at.get(entity_id, 0) > 120
+                old_target is not None
+                and new_target is not None
+                and abs(old_target - new_target) >= RECONCILE_TOLERANCE
+                and any(
+                    self._reconcile_enabled(room) and entity_id in self._room_thermostats(room)
+                    for room in self._active_rooms().values()
+                )
             ):
-                for room_id, room in self._active_rooms().items():
-                    if entity_id not in self._room_thermostats(room):
-                        continue
-                    expected = self._desired_targets.get(entity_id)
-                    # Ignore delayed acknowledgements of our own commands.
-                    if expected is not None and abs(new_target - expected) < 0.25:
-                        break
-                    if self._room_temp(room) is None:
-                        break
-                    self.set_comfort_override(room_id, new_target)
-                    _LOGGER.info(
-                        "Comfort override in %s: %.1f°C for %d minutes",
-                        room_id, new_target, self._comfort_override_seconds // 60,
-                    )
-                    return
+                self._note_possible_manual_change(entity_id, old_target, new_target)
         self._evaluate()
 
     @callback

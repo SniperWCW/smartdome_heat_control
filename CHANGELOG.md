@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.7.0] – 2026-11-15
+## [3.14.0] – 2026-11-15
 
 ### ✨ Fensterpausen-Statistik, Gas-Ersparnis, Lüft-Erinnerung und Sperrzeit
 
@@ -18,48 +18,135 @@
 
 ---
 
-## [3.6.3] – 2026-10-22
+## [3.11.0] – 2026-11-07
 
-### ✨ Wochenplan-Editor: Tag auf andere Tage kopieren
+### ✨ Neue Kachelansicht im Panel
 
-- Neuer Button *Auf andere Tage kopieren* im Wochenplan-Dialog der Seitenleiste. Der aktuell gewählte Tag (z. B. Montag) wird auf beliebig viele andere Wochentage übernommen (z. B. Dienstag bis Freitag).
-- Die Kopie landet im Entwurf und wird, wie alle anderen Änderungen im Dialog, erst mit *Speichern* übernommen.
+- Das Panel zeigt jetzt Kacheln: eine für die globalen Einstellungen und eine pro Raum. Die Raumkachel zeigt Ist-Temperatur, Zieltemperatur, einen kleinen Temperatur-Balken und den Status (heizt, heizt über Klima, kühlt, bereit, Restwärme, Fenster offen, Außensperre, Sensor ausgefallen, deaktiviert). Mit Heizkreisen sind die Kacheln nach Kreis gruppiert.
+- Ein Klick auf eine Kachel öffnet die Einstellungen im Popup. **Speichern** übernimmt sofort, **Abbrechen** verwirft die Änderungen und fragt vorher nach. Der bisherige Knopf *Konfiguration speichern* entfällt.
+- Löschen liegt im Raum-Popup und fragt nach. *Raum hinzufügen* ist eine eigene Kachel.
+- Die Reihenfolge änderst du, indem du eine Raumkachel auf eine andere ziehst. Sie wird direkt gespeichert. Einklappen von Räumen entfällt.
+- Die Kachel zeigt den echten Raum-Sollwert statt des Ventilwerts mit Boost. Dafür meldet die Integration jetzt pro Raum einen Live-Status an das Panel.
+
+### 🛡️ Speichern unterbricht die Regelung nicht mehr
+
+- Speichern setzte bisher den Zustand aller Räume zurück: Ein Raum knapp unter dem Soll hörte auf zu heizen, eine Klimaanlage ging aus und eine laufende Fensterpause endete. Heizzustand, Restwärme-Phase, Fensterpause, Sensor-Überwachung und Außensperre bleiben jetzt erhalten. Die Sollwerte werden trotzdem sofort neu gesendet.
+- Der Live-Status wird nicht mehr in der gespeicherten Konfiguration abgelegt.
 
 ---
 
-**EN:** New *Copy to other days* button in the weekly schedule dialog: copy the selected day's time blocks to any other weekdays. Applied to the draft, saved with *Save*.
+**EN:** New tile view in the panel: one tile for global settings and one per room, showing current and target temperature, a small gauge and the status. Clicking a tile opens its settings in a popup with Save and Cancel, replacing the global save button. Rooms are reordered by dragging tiles, and the order is saved right away. Saving no longer resets the control state, so heating, residual heat, window pause, sensor monitoring and outdoor cutoff carry on while new setpoints are still sent immediately.
 
 ---
 
-## [3.6.2] – 2026-10-15
+## [3.10.1] – 2026-11-07
 
-### 🐛 Fix: Fensterkontakte in Integration und Seitenpanel einheitlich
+### 🔧 Raum-Dialog: fehlende Beschriftungen
 
-- Fensterkontakte werden jetzt überall als Liste `window_sensors` gespeichert. Der Dialog *Integration → Räume bearbeiten/hinzufügen* bietet dafür eine Mehrfachauswahl und zeigt dieselben Kontakte wie das Seitenpanel.
-- Bisher schrieb der Dialog nur das alte Einzelfeld `window_sensor`, das Panel und Regelung nicht mehr auswerten. Kontakte, die im Panel gesetzt wurden, fehlten deshalb im Dialog; im Dialog gesetzte Kontakte wurden ignoriert.
-- Migration: Ein noch im alten Feld stehender Kontakt wird beim Laden in die Liste übernommen, das Altfeld danach geleert.
+- Im Dialog *Integration → Räume bearbeiten/hinzufügen* haben *Weitere Heizkörperventile*, *Away-Modus für diesen Raum aktiv* und *Sollwert-Abgleich* jetzt eine Beschriftung statt des technischen Feldnamens.
+
+---
+
+**EN:** The integration's room dialog now shows proper labels for additional radiator valves, per-room away mode and setpoint reconciliation instead of raw field names.
+
+---
+
+## [3.10.0] – 2026-11-07
+
+### 🎯 Sollwert-Abgleich (Option pro Raum, Standard aus, aus #79, danke @SniperWCW)
+
+Pro Raum zuschaltbar (Panel und Integrationsoptionen: *Sollwert-Abgleich*). Ohne die Option ändert sich nichts.
+
+- Prüft, ob das Thermostat den gesendeten Sollwert übernommen hat, und sendet bei Abweichung ≥ 0,5 °C **höchstens zweimal** (Abstand ≥ 10 min) erneut. Das Senden läuft nicht über `_set_temp_if_needed`, dessen Verhalten bleibt unverändert.
+- **Begrenzende Ventile** (z. B. max. 28 °C) gelten danach als begrenzt: kein dauerndes Wiedersenden, keine Warnung im Log (nur ein Info-Eintrag), bis sich der Zielwert ändert.
+- **Manuelle Änderungen** am Ventil (Absenken und Anheben) werden erkannt und bis zur nächsten Änderung des Zielwerts nicht überschrieben.
+- Gilt für Heizkörperventile, nicht für Klimaanlagen.
+- Tests unter `tests/` (laufen ohne Home-Assistant-Installation: `pytest`).
+
+### 🐛 Fensterkontakte in Integration und Seitenpanel einheitlich (aus #81, danke @SniperWCW)
+
+- Fensterkontakte werden überall als Liste `window_sensors` gespeichert. Der Dialog *Integration → Räume bearbeiten/hinzufügen* bietet dafür eine Mehrfachauswahl und zeigt dieselben Kontakte wie das Seitenpanel. Man muss sie nicht mehr an zwei Stellen pflegen.
+- Bisher schrieb der Dialog nur das alte Einzelfeld `window_sensor`, das Panel und Regelung nicht auswerten: im Panel gesetzte Kontakte fehlten im Dialog, im Dialog gesetzte wurden ignoriert.
+- Migration: Ein noch im alten Feld stehender Kontakt wird beim Laden in die Liste übernommen, das Altfeld danach geleert. **Achtung:** Ein Kontakt, der bisher nur im Dialog eingetragen und deshalb wirkungslos war, wird dadurch aktiv und kann das Heizen pausieren.
 - Dienst `add_room` akzeptiert `window_sensors` (Liste); `window_sensor` funktioniert weiterhin.
 
 ---
 
-**EN:** Window sensors are now stored as the `window_sensors` list everywhere. The integration's room dialog uses a multi-select and shows the same sensors as the side panel; the legacy `window_sensor` field is migrated on load.
+**EN:** Optional per-room setpoint reconciliation (default off): re-sends the setpoint at most twice (≥ 10 min apart) if the valve did not accept it, treats clamping valves as limited (info log only, no warning) and does not overwrite manual changes at the valve until the target changes. Radiator valves only. Window contacts are now stored as the `window_sensors` list everywhere, with a multi-select in the integration dialog; a contact still in the legacy field is migrated on load, so a contact that was previously ignored becomes active. Based on PRs #79/#81 by @SniperWCW.
 
 ---
 
-## [3.6.1] – 2026-10-15
+## [3.9.1] – 2026-11-07
 
-### 🔧 Reliability-Update und stabiler Wochenplan-Editor
+### 🔧 Heizen über Klimaanlage: Ausschalten statt Herunterdrehen
 
-- Der Wochenplan-Editor baut Zeit- und Temperaturfelder während der Eingabe nicht mehr neu auf. Werte werden erst bei `change`/`blur` übernommen; Sortierung und Re-Render erfolgen nur noch bei strukturellen Aktionen oder beim Speichern.
-- Die Zeitvalidierung lehnt ungültige Werte außerhalb von `00:00` bis `23:59` zuverlässig ab.
-- Außentemperatur-Sperre mit konfigurierbarer Hysterese und minimaler Raumtemperatur robuster gemacht.
-- Temperaturquellen und Bosch-Sollwerte werden defensiver ausgewertet und abgeglichen.
-- Raumstatus enthält einen expliziten Regelgrund für eine bessere Diagnose.
-- Änderungen am physischen Thermostat oder an der Raum-Climate-Entität können als zeitlich begrenzter Komfort-Override übernommen werden; Status und Restlaufzeit werden angezeigt.
+- Die Klimaanlage läuft nur noch, solange der Raum heizt. Ist die Solltemperatur erreicht, wird sie **ausgeschaltet** (`hvac_mode: off`), statt im Heizmodus zu bleiben. Unterschreitet der Raum wieder *Soll − Toleranz*, schaltet sie sich mit dem aktuellen Sollwert wieder ein.
+- Räume ohne Raumsensor verhalten sich wie bisher: Die Klimaanlage regelt selbst auf den Sollwert.
 
 ---
 
-**EN:** Reliability update with safer temperature/target handling, configurable outdoor-cutoff hysteresis, diagnostic control reasons and timed comfort overrides. The weekly-schedule editor now commits fields on `change`/`blur` without rebuilding the DOM while typing; sorting is deferred to structural actions or save.
+**EN:** When heating via air conditioning, the unit is now switched off once the room reaches its target instead of staying in heat mode, and switched back on with the current setpoint when the room drops below target minus tolerance. Rooms without a room sensor keep the previous behaviour.
+
+---
+
+## [3.9.0] – 2026-10-26
+
+### ✨ Außentemperatur-Sperre: Mindest-Raumtemperatur und Hysterese (aus #76/#78, danke @SniperWCW)
+
+- **Mindest-Raumtemperatur:** Während der Außensperre kann weiter bis zu einer reduzierten Temperatur geheizt werden, statt die Heizung komplett zu sperren. Standard **0 = aus**, das bisherige Verhalten bleibt also unverändert. Räume ohne eigenen Raumsensor regeln über das Ventil auf diese Temperatur.
+- **Hysterese** (Standard 2 °C): Die Sperre wird erst wieder aufgehoben, wenn die Außentemperatur unter *Schwellenwert − Hysterese* fällt – kein Flattern bei schwankender Außentemperatur.
+- Beide Einstellungen gibt es im Panel (Bereich Außentemperatur) und in den Integrationsoptionen.
+- Heizen über eine Klimaanlage hält sich jetzt ebenfalls an die Außensperre.
+
+### 🛡️ Zuverlässigkeit
+
+- **Raumsensor-Ausfall:** Liefert ein eingetragener Raumsensor länger als 5 Minuten keinen Wert, heizt der Raum nicht mehr weiter (Ventile auf Minimum, Relais aus) und es wird eine Warnung geloggt. Räume ohne eingetragenen Sensor sind davon nicht betroffen.
+- **Diagnose:** Der Raumstatus-Sensor hat neue Attribute: `control_reason` (z. B. `heating`, `window_pause`, `outdoor_cutoff`, `minimum_temperature_heating`, `sensor_fault`), `control_target_temperature`, `outdoor_cutoff_active`, `outdoor_minimum_active`, `sensor_fault`.
+- **Raum-Erkennung:** Es werden nur noch echte Temperatursensoren (`device_class: temperature`, °C/°F) automatisch zugeordnet.
+- **Integrationsoptionen:** Leere optionale Entity-/Zeitfelder werden nicht mehr als ungültiger Standardwert übergeben.
+
+### 🔧 Wochenplan-Editor
+
+- Zeit- und Temperaturfelder werden beim Tippen nicht mehr neu aufgebaut (kein Fokusverlust mehr); sortiert wird erst bei Tageswechsel, Hinzufügen/Löschen oder Speichern.
+- Ungültige Zeiten außerhalb von 00:00–23:59 werden abgelehnt.
+
+---
+
+**EN:** Outdoor cutoff gains an optional minimum room temperature (default 0 = off, previous behaviour unchanged) and a hysteresis (default 2 °C), both configurable in the panel. A configured room sensor missing for 5 min now stops heating for that room. New diagnostic attributes on the room status sensor, stricter temperature-sensor autodetection, options-flow fix for empty defaults, and a stable weekly-schedule editor. Based on PRs #76/#78 by @SniperWCW.
+
+---
+
+## [3.8.0] – 2026-10-26
+
+### ✨ Feat: Schalter-Aktoren pro Raum (z. B. Shelly-Relais für Fußbodenheizung) (#77)
+
+Räume können jetzt zusätzlich oder statt eines Heizkörperventils **Schalter-Aktoren** (`switch.*` oder `input_boolean.*`) bekommen. Smart Heat Control schaltet sie selbst anhand von Raumsensor und Solltemperatur – ein „Generic Thermostat“ als Zwischenschicht ist nicht mehr nötig.
+
+- **An** nur, wenn der Raum heizt; **aus** bei Leerlauf, Restwärme-Halten (Energy), Kühlen, Heizen über Klimaanlage, Außentemperatur-Abschaltung und deaktiviertem Raum bzw. deaktivierter Integration.
+- **Hysterese pro Raum** (Erweitert): Einschalten unter *Ziel − Hysterese*, Ausschalten bei Erreichen des Ziels. Leer = globale Toleranz. Gilt für den ganzen Raum, also auch für Heizkörperventile.
+- **Mindest-Laufzeit und Mindest-Pause** (Standard je 5 min) schützen Relais und Stellantriebe vor häufigem Takten. Eine **Fensterpause** und das Deaktivieren schalten trotzdem sofort aus.
+- Es wird nur geschaltet, wenn der Zustand abweicht; nicht erreichbare Relais (`unavailable`) werden übersprungen.
+- Voraussetzung: ein **Raumtemperatursensor**. Ohne Sensor bleibt das Relais aus.
+
+---
+
+**EN:** Rooms can now use switch actuators (`switch.*` / `input_boolean.*`, e.g. Shelly relays for floor heating) directly. They are turned on only while the room is heating, with an optional per-room hysteresis and minimum on/off times (default 5 min). Window pause and disabling switch off immediately. A room temperature sensor is required.
+
+---
+
+## [3.7.0] – 2026-10-26
+
+### ✨ Feat: −/+ Knöpfe für Temperaturfelder
+
+Alle Temperatur-Eingabefelder (Tag/Nacht/Away pro Raum, Kalibrierungsoffset, Kühlziele, Wochenschema, globale Zieltemperaturen, Urlaubs-, Außen- und Kühlschwelle, Boost-Delta, Toleranz) haben jetzt **−/+ Knöpfe**. Ein Klick ändert den Wert um 0,5 °C – bequem auf dem Handy, Eintippen bleibt weiterhin möglich. Die Knöpfe halten Min/Max ein und rasten krumme Werte (z. B. 21,3) auf das 0,5er-Raster ein.
+
+### ✨ Feat: Ist-/Soll-Temperatur neben dem Raumnamen
+
+In der Kopfzeile jeder Raumkarte stehen jetzt direkt neben dem Namen die gemessene Temperatur (🌡️, Raumsensor bzw. Ventil als Fallback) und der Sollwert des Heizkörperventils (🎯). Beide aktualisieren sich live, sind auch bei eingeklappter Karte sichtbar und öffnen per Klick die Detailansicht in Home Assistant.
+
+---
+
+**EN:** Temperature inputs now have −/+ buttons (0.5 °C steps, respecting min/max). Room card headers show the current temperature and the valve setpoint next to the room name.
 
 ---
 

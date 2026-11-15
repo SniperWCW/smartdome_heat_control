@@ -9,16 +9,8 @@ PKG = Path(__file__).resolve().parents[1] / "custom_components" / "smartdome_hea
 
 
 def _load():
-    for name in (
-        "homeassistant",
-        "homeassistant.core",
-        "homeassistant.helpers",
-        "homeassistant.helpers.dispatcher",
-        "homeassistant.helpers.storage",
-    ):
-        sys.modules.setdefault(name, types.ModuleType(name))
-    sys.modules["homeassistant.core"].HomeAssistant = object
-    sys.modules["homeassistant.helpers.dispatcher"].async_dispatcher_send = lambda *a: None
+    """window_stats isoliert laden, ohne die Stubs anderer Tests zu stören."""
+    from unittest.mock import patch
 
     class Store:
         def __init__(self, *a):
@@ -27,16 +19,33 @@ def _load():
         def async_delay_save(self, *a):
             pass
 
-    sys.modules["homeassistant.helpers.storage"].Store = Store
+    def stub(name, **attrs):
+        mod = types.ModuleType(name)
+        mod.__dict__.update(attrs)
+        return mod
+
+    helpers = stub("homeassistant.helpers")
+    helpers.__path__ = []
+    fakes = {
+        "homeassistant": stub("homeassistant"),
+        "homeassistant.core": stub("homeassistant.core", HomeAssistant=object),
+        "homeassistant.helpers": helpers,
+        "homeassistant.helpers.dispatcher": stub(
+            "homeassistant.helpers.dispatcher", async_dispatcher_send=lambda *a: None
+        ),
+        "homeassistant.helpers.storage": stub("homeassistant.helpers.storage", Store=Store),
+    }
     pkg = types.ModuleType("smartdome_pkg")
     pkg.__path__ = [str(PKG)]
-    sys.modules["smartdome_pkg"] = pkg
-    for mod in ("const", "window_stats"):
-        spec = importlib.util.spec_from_file_location(f"smartdome_pkg.{mod}", PKG / f"{mod}.py")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[f"smartdome_pkg.{mod}"] = module
-        spec.loader.exec_module(module)
-    return sys.modules["smartdome_pkg.window_stats"]
+    modules = {}
+    with patch.dict(sys.modules, {**fakes, "smartdome_pkg": pkg}):
+        for mod in ("const", "window_stats"):
+            spec = importlib.util.spec_from_file_location(f"smartdome_pkg.{mod}", PKG / f"{mod}.py")
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[f"smartdome_pkg.{mod}"] = module
+            spec.loader.exec_module(module)
+            modules[mod] = module
+    return modules["window_stats"]
 
 
 w = _load()

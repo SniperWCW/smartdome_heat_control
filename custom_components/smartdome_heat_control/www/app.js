@@ -43,12 +43,51 @@ const I18N = {
   en: {
     title: "Smartdome Heat Control",
     subtitle:
-      "Global settings on the left, rooms on the right. Rooms can use their own schedules.",
+      "Click a tile to edit a room or the global settings.",
     version: "Version",
 
     reload_rooms: "Reload rooms",
     reload_config: "Reload",
-    save_config: "Save configuration",
+    save_config: "Save",
+    edit_cancel: "Cancel",
+    edit_delete: "Delete",
+    edit_close: "Close",
+    edit_discard_question: "Discard changes?",
+    edit_discard_confirm: "Discard",
+    edit_keep_editing: "Keep editing",
+    edit_delete_question: "Really delete {name}?",
+    edit_delete_keep: "Keep",
+    tile_target: "Target",
+    tile_now: "Now",
+    tile_no_reading: "No reading",
+    tile_control: "Control",
+    tile_control_on: "Active",
+    tile_control_off: "Off",
+    tile_operation: "Operation",
+    tile_outdoor: "Outdoor",
+    tile_heating_mode: "Heating mode",
+    tile_running_heat: "{count} of {total} heating",
+    tile_running_cool: "{count} of {total} cooling",
+    op_normal: "Normal",
+    op_vacation: "Vacation",
+    op_away: "Away",
+    op_cooling: "Cooling",
+    op_cutoff: "Outdoor cutoff",
+    note_vacation: "Vacation",
+    note_away: "Away",
+    note_minimum: "Minimum temperature",
+    status_disabled: "Disabled",
+    status_control_off: "Control off",
+    status_sensor_fault: "Sensor failed",
+    status_window_pause: "Window open, paused",
+    status_window_open: "Window open",
+    status_cooling: "Cooling",
+    status_heating: "Heating",
+    status_heating_ac: "Heating via AC",
+    status_residual: "Residual heat",
+    status_cutoff: "Outdoor cutoff",
+    status_idle: "Ready",
+    tile_open: "Open settings",
 
     status_loading: "Loading configuration …",
     status_initializing: "Initializing panel …",
@@ -100,6 +139,9 @@ const I18N = {
     main_thermostat: "Heating pump controller (climate entity)",
     main_switch: "Heating pump controller (switch entity)",
     main_sensor: "Temperature sensor",
+    main_idle_temperature: "Temperature without heat demand (°C)",
+    idle_temperature_placeholder: "Auto",
+    idle_temperature_hint: "Leave empty: minimum temperature of the thermostat.",
     boost_delta: "Boost delta (°C)",
     tolerance: "Tolerance (°C)",
     heating_mode: "Heating mode",
@@ -130,8 +172,6 @@ const I18N = {
     room_mode_global: "Global",
 
     rooms_title: "Rooms",
-    rooms_subtitle:
-      "Scrollable on the right so the global settings remain visible.",
     add_room: "Add room",
     no_rooms: "No rooms configured yet.",
 
@@ -142,6 +182,12 @@ const I18N = {
     room_thermostat: "Radiator valve",
     room_extra_thermostats: "Additional radiator valves",
     add_extra_thermostat: "Add radiator valve",
+    room_switch_actuators: "Switch actuators (relay, e.g. floor heating)",
+    add_switch_actuator: "Add switch actuator",
+    room_switch_actuators_hint: "Switched on/off directly based on the room sensor – a room temperature sensor is required.",
+    room_hysteresis: "Hysteresis (°C, empty = global tolerance)",
+    room_switch_min_on: "Switch actuator: minimum on time (min)",
+    room_switch_min_off: "Switch actuator: minimum off time (min)",
     room_sensor: "Room temperature sensor",
     room_window_sensor: "Window sensor",
     room_control_profile: "Thermostat control profile",
@@ -153,6 +199,7 @@ const I18N = {
     room_thermostat_offset: "Thermostat calibration offset (°C)",
     room_away_temperature: "Away temperature (°C)",
     room_away_mode_enabled: "Away mode active for this room",
+    room_target_reconcile_enabled: "Setpoint reconciliation: re-send the setpoint if the valve did not accept it (limited retries, respects manual changes)",
     room_day_start: "Day start",
     room_night_start: "Night start",
     room_manual: "Manually created",
@@ -188,8 +235,6 @@ const I18N = {
 
     schedule_copy_rooms: "Copy to other rooms",
     schedule_copy_title: "Copy weekly schedule",
-    schedule_copy_days: "Copy to other days",
-    schedule_copy_days_title: "Copy day schedule",
     schedule_copy_apply: "Apply",
     schedule_copy_no_rooms: "No other rooms available.",
 
@@ -218,6 +263,10 @@ const I18N = {
     outdoor_temp_cutoff_enabled: "Cutoff enabled",
     outdoor_temp_cutoff_enabled_hint: "Heating is suppressed when outdoor temperature ≥ threshold.",
     outdoor_temp_cutoff: "Threshold (°C)",
+    outdoor_cutoff_hysteresis: "Hysteresis (°C)",
+    outdoor_cutoff_hysteresis_hint: "The cutoff is only released once the outdoor temperature drops below threshold − hysteresis.",
+    outdoor_min_room_temperature: "Minimum room temperature (°C)",
+    outdoor_min_room_temperature_hint: "While the cutoff is active, rooms are only heated up to this temperature. 0 = heating fully blocked.",
     section_cooling: "Cooling",
     cooling_enabled: "Cooling active",
     cooling_enabled_hint: "Manually activates cooling mode via air conditioning. Heating valves are set to minimum.",
@@ -248,6 +297,9 @@ const I18N = {
     room_climate_entity: "Air conditioning (climate entity)",
     room_use_climate: "Use AC for heating",
     room_use_climate_hint: "Uses the air conditioning unit for heating instead of the radiator valve.",
+    climate_live_off: "off",
+    room_climate_heat_boost: "Full-power boost mode",
+    room_climate_heat_boost_hint: "Runs the AC at max temperature when heating is needed, then turns it completely off. Requires a room sensor.",
     section_room_cooling: "Cooling settings",
     room_cool_target_day: "Cooling target day (°C)",
     room_cool_target_night: "Cooling target night (°C)",
@@ -271,12 +323,51 @@ const I18N = {
   de: {
     title: "Smartdome Heat Control",
     subtitle:
-      "Haupteinstellungen links, Räume rechts. Räume können unabhängig eigene Zeiten bekommen.",
+      "Tippe auf eine Kachel, um den Raum oder die globalen Einstellungen zu bearbeiten.",
     version: "Version",
 
     reload_rooms: "Räume neu erkennen",
     reload_config: "Neu laden",
-    save_config: "Konfiguration speichern",
+    save_config: "Speichern",
+    edit_cancel: "Abbrechen",
+    edit_delete: "Löschen",
+    edit_close: "Schließen",
+    edit_discard_question: "Änderungen verwerfen?",
+    edit_discard_confirm: "Verwerfen",
+    edit_keep_editing: "Weiter bearbeiten",
+    edit_delete_question: "{name} wirklich löschen?",
+    edit_delete_keep: "Behalten",
+    tile_target: "Ziel",
+    tile_now: "Aktuell",
+    tile_no_reading: "Kein Messwert",
+    tile_control: "Steuerung",
+    tile_control_on: "Aktiv",
+    tile_control_off: "Aus",
+    tile_operation: "Betrieb",
+    tile_outdoor: "Außen",
+    tile_heating_mode: "Heizmodus",
+    tile_running_heat: "{count} von {total} heizen",
+    tile_running_cool: "{count} von {total} kühlen",
+    op_normal: "Normal",
+    op_vacation: "Urlaub",
+    op_away: "Nicht zuhause",
+    op_cooling: "Kühlen",
+    op_cutoff: "Außensperre",
+    note_vacation: "Urlaub",
+    note_away: "Nicht zuhause",
+    note_minimum: "Mindesttemperatur",
+    status_disabled: "Deaktiviert",
+    status_control_off: "Steuerung aus",
+    status_sensor_fault: "Sensor ausgefallen",
+    status_window_pause: "Fenster offen, Pause",
+    status_window_open: "Fenster offen",
+    status_cooling: "Kühlt",
+    status_heating: "Heizt",
+    status_heating_ac: "Heizt über Klima",
+    status_residual: "Restwärme",
+    status_cutoff: "Außensperre",
+    status_idle: "Bereit",
+    tile_open: "Einstellungen öffnen",
 
     status_loading: "Lade Konfiguration …",
     status_initializing: "Initialisiere Panel …",
@@ -329,6 +420,9 @@ const I18N = {
     main_thermostat: "Heizpumpensteuerung (Climate-Entity)",
     main_switch: "Heizpumpensteuerung (Switch-Entity)",
     main_sensor: "Temperatursensor",
+    main_idle_temperature: "Temperatur ohne Heizbedarf (°C)",
+    idle_temperature_placeholder: "Auto",
+    idle_temperature_hint: "Leer lassen: Mindesttemperatur des Thermostats.",
     boost_delta: "Boost-Delta (°C)",
     tolerance: "Toleranz (°C)",
     heating_mode: "Heizmodus",
@@ -359,8 +453,6 @@ const I18N = {
     room_mode_global: "Global",
 
     rooms_title: "Räume",
-    rooms_subtitle:
-      "Rechts scrollbar, damit die Haupteinstellungen sichtbar bleiben.",
     add_room: "Raum hinzufügen",
     no_rooms: "Noch keine Räume vorhanden.",
 
@@ -371,6 +463,12 @@ const I18N = {
     room_thermostat: "Heizkörperventil",
     room_extra_thermostats: "Weitere Heizkörperventile",
     add_extra_thermostat: "Heizkörperventil hinzufügen",
+    room_switch_actuators: "Schalter-Aktoren (Relais, z. B. Fußbodenheizung)",
+    add_switch_actuator: "Schalter-Aktor hinzufügen",
+    room_switch_actuators_hint: "Werden anhand des Raumsensors direkt ein-/ausgeschaltet – dafür ist ein Raumtemperatursensor nötig.",
+    room_hysteresis: "Hysterese (°C, leer = globale Toleranz)",
+    room_switch_min_on: "Schalter-Aktor: Mindest-Laufzeit (min)",
+    room_switch_min_off: "Schalter-Aktor: Mindest-Pause (min)",
     room_sensor: "Raumtemperatursensor",
     room_window_sensor: "Fensterkontakt",
     room_control_profile: "Thermostat-Regelprofil",
@@ -382,6 +480,7 @@ const I18N = {
     room_thermostat_offset: "Thermostat-Kalibrierungsoffset (°C)",
     room_away_temperature: "Away-Temperatur (°C)",
     room_away_mode_enabled: "Away-Modus für diesen Raum aktiv",
+    room_target_reconcile_enabled: "Sollwert-Abgleich: Sollwert erneut senden, wenn das Ventil ihn nicht übernommen hat (begrenzte Wiederholungen, manuelle Änderungen werden respektiert)",
     room_day_start: "Tag-Start",
     room_night_start: "Nacht-Start",
     room_manual: "Manuell angelegt",
@@ -417,8 +516,6 @@ const I18N = {
 
     schedule_copy_rooms: "Auf andere Räume kopieren",
     schedule_copy_title: "Wochenschema kopieren",
-    schedule_copy_days: "Auf andere Tage kopieren",
-    schedule_copy_days_title: "Tagesschema kopieren",
     schedule_copy_apply: "Übernehmen",
     schedule_copy_no_rooms: "Keine anderen Räume verfügbar.",
 
@@ -447,6 +544,10 @@ const I18N = {
     outdoor_temp_cutoff_enabled: "Abschaltung aktiv",
     outdoor_temp_cutoff_enabled_hint: "Heizung wird unterdrückt wenn Außentemperatur ≥ Schwellenwert.",
     outdoor_temp_cutoff: "Schwellenwert (°C)",
+    outdoor_cutoff_hysteresis: "Hysterese (°C)",
+    outdoor_cutoff_hysteresis_hint: "Die Sperre wird erst wieder aufgehoben, wenn die Außentemperatur unter Schwellenwert − Hysterese fällt.",
+    outdoor_min_room_temperature: "Mindest-Raumtemperatur (°C)",
+    outdoor_min_room_temperature_hint: "Während der Sperre wird nur noch bis zu dieser Temperatur geheizt. 0 = Heizung komplett gesperrt.",
     section_cooling: "Kühlen",
     cooling_enabled: "Kühlen aktiv",
     cooling_enabled_hint: "Aktiviert den Kühlmodus manuell über Klimaanlagen. Heizventile werden auf Minimum gesetzt.",
@@ -477,6 +578,9 @@ const I18N = {
     room_climate_entity: "Klimaanlage (Climate-Entity)",
     room_use_climate: "Klimaanlage zum Heizen nutzen",
     room_use_climate_hint: "Nutzt die Klimaanlage zum Heizen anstatt des Heizkörperventils.",
+    climate_live_off: "aus",
+    room_climate_heat_boost: "Volllast-Boost-Modus",
+    room_climate_heat_boost_hint: "Heizt mit maximaler Leistung solange Heizbedarf besteht, schaltet danach komplett ab. Erfordert einen Raumsensor.",
     section_room_cooling: "Kühleinstellungen",
     room_cool_target_day: "Kühlziel Tag (°C)",
     room_cool_target_night: "Kühlziel Nacht (°C)",
@@ -517,6 +621,7 @@ const DEFAULTS = {
   main_thermostat: "",
   main_switch: "",
   main_sensor: "",
+  main_idle_temperature: null,
   boost_delta: 2.0,
   tolerance: 0.5,
   heating_mode: "balanced",
@@ -530,6 +635,8 @@ const DEFAULTS = {
   outdoor_sensor: "",
   outdoor_temp_cutoff_enabled: false,
   outdoor_temp_cutoff: 15.0,
+  outdoor_cutoff_hysteresis: 2.0,
+  outdoor_min_room_temperature: 0.0,
   global_target_day: 21.0,
   global_target_night: 18.0,
   global_away_temperature: 17.0,
@@ -564,10 +671,10 @@ const state = {
   switches: [],
   binarySensors: [],
   allStates: [],
+  roomStatus: {},
 };
 
 const entityPickerState = new Map();
-const roomCollapsedState = new Map();
 let dragSrcRoomId = null;
 
 let els = {};
@@ -578,7 +685,20 @@ function initEls() {
     saveBtn: document.getElementById("saveBtn"),
     reloadConfigBtn: document.getElementById("reloadConfigBtn"),
     reloadRoomsBtn: document.getElementById("reloadRoomsBtn"),
-    addRoomBtn: document.getElementById("addRoomBtn"),
+    mainWrap: document.querySelector(".wrap"),
+    tileWall: document.getElementById("tileWall"),
+    globalForm: document.getElementById("globalForm"),
+    editModal: document.getElementById("edit-modal"),
+    editModalContent: document.getElementById("edit-modal-content"),
+    editModalBody: document.getElementById("edit-modal-body"),
+    editModalTitle: document.getElementById("edit-modal-title"),
+    editModalLive: document.getElementById("edit-modal-live"),
+    editModalClose: document.getElementById("edit-modal-close"),
+    editStatus: document.getElementById("edit-status"),
+    editDelete: document.getElementById("edit-delete"),
+    editQuestion: document.getElementById("edit-question"),
+    editCancel: document.getElementById("edit-cancel"),
+    editConfirm: document.getElementById("edit-confirm"),
     applyTimesToRoomsBtn: document.getElementById("applyTimesToRoomsBtn"),
     applyTempsToRoomsBtn: document.getElementById("applyTempsToRoomsBtn"),
     globalTargetDay: document.getElementById("global_target_day"),
@@ -595,6 +715,8 @@ function initEls() {
     mainSwitchPicker: document.getElementById("main_switch_picker"),
     mainSensorField: document.getElementById("main_sensor_field"),
     mainSensorPicker: document.getElementById("main_sensor_picker"),
+    mainIdleTemperatureField: document.getElementById("main_idle_temperature_field"),
+    mainIdleTemperature: document.getElementById("main_idle_temperature"),
     boostDelta: document.getElementById("boost_delta"),
     tolerance: document.getElementById("tolerance"),
     modePickerContainer: document.getElementById("heating_mode_picker"),
@@ -620,12 +742,9 @@ function initEls() {
     scheduleModalTitle: document.getElementById("schedule-modal-title"),
     scheduleClose: document.getElementById("schedule-close"),
     scheduleCancel: document.getElementById("schedule-cancel"),
-    scheduleAdd: document.getElementById("schedule-add"),
     scheduleSave: document.getElementById("schedule-save"),
-    scheduleEntries: document.getElementById("schedule-entries"),
-    scheduleDayButtons: document.querySelectorAll(".schedule-days button"),
+    scheduleCalendar: document.getElementById("schedule-calendar"),
     scheduleCopyRoomsBtn: document.getElementById("schedule-copy-rooms"),
-    scheduleCopyDaysBtn: document.getElementById("schedule-copy-days"),
 
     scheduleCopyModal: document.getElementById("schedule-copy-modal"),
     scheduleCopyTitle: document.getElementById("schedule-copy-title"),
@@ -637,6 +756,8 @@ function initEls() {
     outdoorSensorPicker: document.getElementById("outdoor_sensor_picker"),
     outdoorTempCutoffEnabled: document.getElementById("outdoor_temp_cutoff_enabled"),
     outdoorTempCutoff: document.getElementById("outdoor_temp_cutoff"),
+    outdoorCutoffHysteresis: document.getElementById("outdoor_cutoff_hysteresis"),
+    outdoorMinRoomTemperature: document.getElementById("outdoor_min_room_temperature"),
   };
 }
 
@@ -646,20 +767,28 @@ let isSaving = false;
 let pendingCircuits = null;
 let activeEntityPickerId = null;
 let scheduleRoomId = null;
-let currentScheduleDay = "monday";
 let draftWeeklySchedule = null;
-let scheduleCopyMode = "rooms";
+// Offenes Popup: { kind: "global" | "room", roomId, isNew, snapshot, baseline, confirm }
+let editSession = null;
 
 function setStatus(message, type = "warn") {
   els.statusBox.textContent = message;
   els.statusBox.className = `status ${type}`;
+
+  // Hinter dem offenen Popup wäre die Statuszeile nicht zu sehen.
+  if (editSession) {
+    els.editStatus.textContent = message;
+    els.editStatus.className = `status edit-status ${type}`;
+  }
 }
 
 function setButtonsDisabled(disabled) {
   els.saveBtn.disabled = disabled;
+  els.editCancel.disabled = disabled;
+  els.editConfirm.disabled = disabled;
+  els.editDelete.disabled = disabled;
   els.reloadConfigBtn.disabled = disabled;
   els.reloadRoomsBtn.disabled = disabled;
-  els.addRoomBtn.disabled = disabled;
   els.applyTimesToRoomsBtn.disabled = disabled;
 
   if (els.energyResidualHeatHold) {
@@ -698,10 +827,6 @@ function applyTranslations() {
     els.scheduleModalTitle.textContent = t("schedule_title");
   }
 
-  if (els.scheduleAdd) {
-    els.scheduleAdd.textContent = t("schedule_add");
-  }
-
   if (els.scheduleSave) {
     els.scheduleSave.textContent = t("schedule_save");
   }
@@ -712,10 +837,6 @@ function applyTranslations() {
 
   if (els.scheduleCopyRoomsBtn) {
     els.scheduleCopyRoomsBtn.textContent = t("schedule_copy_rooms");
-  }
-
-  if (els.scheduleCopyDaysBtn) {
-    els.scheduleCopyDaysBtn.textContent = t("schedule_copy_days");
   }
 
   if (els.scheduleCopyTitle) {
@@ -736,12 +857,6 @@ function applyTranslations() {
     sunday: "day_sunday",
   };
 
-  els.scheduleDayButtons.forEach((btn) => {
-    const key = dayLabelMap[btn.dataset.day];
-    if (key) {
-      btn.textContent = t(key);
-    }
-  });
 }
 
 function sortByEntityId(items) {
@@ -805,6 +920,13 @@ function normalizeNumber(value, fallback) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+// Optionale Zahl: leer/ungültig → null (= automatisch).
+function normalizeOptionalNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
 function normalizeHeatingMode(value) {
   if (typeof value !== "string") {
     return DEFAULTS.heating_mode;
@@ -828,7 +950,10 @@ function normalizeControlProfile(value) {
 function normalizeScheduleEntry(entry) {
   return {
     start: normalizeTime(entry?.start, "06:00"),
-    temperature: normalizeNumber(entry?.temperature, 21.0),
+    temperature:
+      entry && entry.temperature === null
+        ? null
+        : normalizeNumber(entry?.temperature, 21.0),
   };
 }
 
@@ -857,6 +982,17 @@ function normalizeRoom(roomId, room) {
     extra_thermostats: Array.isArray(room?.extra_thermostats)
       ? room.extra_thermostats.filter((s) => typeof s === "string" && s)
       : [],
+    switch_actuators: Array.isArray(room?.switch_actuators)
+      ? room.switch_actuators.filter((s) => typeof s === "string" && s)
+      : [],
+    hysteresis: (() => {
+      const value = Number(room?.hysteresis);
+      return room?.hysteresis !== "" && room?.hysteresis !== null && Number.isFinite(value) && value > 0
+        ? value
+        : null;
+    })(),
+    switch_min_on: Math.max(0, normalizeNumber(room?.switch_min_on, 5)),
+    switch_min_off: Math.max(0, normalizeNumber(room?.switch_min_off, 5)),
     sensor: typeof room?.sensor === "string" ? room.sensor : "",
     window_sensor:
       typeof room?.window_sensor === "string" ? room.window_sensor : "",
@@ -876,6 +1012,7 @@ function normalizeRoom(roomId, room) {
     away_temperature: normalizeNumber(room?.away_temperature, 17.0),
     floor_area_m2: Math.max(0, normalizeNumber(room?.floor_area_m2, 0)),
     room_away_enabled: room?.room_away_enabled === true,
+    room_target_reconcile_enabled: room?.room_target_reconcile_enabled === true,
     weekly_schedule: normalizeWeeklySchedule(room?.weekly_schedule),
     day_start: normalizeTime(room?.day_start, ""),
     night_start: normalizeTime(room?.night_start, ""),
@@ -889,6 +1026,7 @@ function normalizeRoom(roomId, room) {
     room_heating_mode: typeof room?.room_heating_mode === "string" ? room.room_heating_mode : "",
     climate_entity: typeof room?.climate_entity === "string" ? room.climate_entity : "",
     use_climate: room?.use_climate === true,
+    climate_heat_boost: room?.climate_heat_boost === true,
     cool_target_day: normalizeNumber(room?.cool_target_day, 23.0),
     cool_target_night: normalizeNumber(room?.cool_target_night, 24.0),
     climate_fan_mode: typeof room?.climate_fan_mode === "string" ? room.climate_fan_mode : "auto",
@@ -913,6 +1051,7 @@ function normalizeCircuit(circuitId, circuit) {
       typeof circuit?.main_switch === "string" ? circuit.main_switch : "",
     main_sensor:
       typeof circuit?.main_sensor === "string" ? circuit.main_sensor : "",
+    idle_temperature: normalizeOptionalNumber(circuit?.idle_temperature),
     enabled: circuit?.enabled !== false,
   };
 }
@@ -931,6 +1070,7 @@ function normalizeConfig(input) {
   cfg.main_switch =
     typeof cfg.main_switch === "string" ? cfg.main_switch : "";
   cfg.main_sensor = typeof cfg.main_sensor === "string" ? cfg.main_sensor : "";
+  cfg.main_idle_temperature = normalizeOptionalNumber(cfg.main_idle_temperature);
   cfg.boost_delta = normalizeNumber(cfg.boost_delta, DEFAULTS.boost_delta);
   cfg.tolerance = normalizeNumber(cfg.tolerance, DEFAULTS.tolerance);
   cfg.heating_mode = normalizeHeatingMode(cfg.heating_mode);
@@ -1045,6 +1185,27 @@ function getThermostatSetpoint(thermostatId) {
   return Number.isFinite(val) ? val : null;
 }
 
+const CLIMATE_MODE_ICONS = {
+  heat: "🔥",
+  cool: "❄️",
+  dry: "💧",
+  fan_only: "🌀",
+  auto: "🔄",
+  heat_cool: "🔄",
+};
+
+// Betriebsart-Symbol + Solltemperatur der Klimaanlage, analog zum Heizkörperthermostat
+function getClimateLiveHtml(climateId) {
+  const entity = findState(climateId);
+  if (!entity) return "";
+  const mode = String(entity.state || "");
+  if (mode === "off") return escapeHtml(`⏻ ${t("climate_live_off")}`);
+  if (mode === "unavailable" || mode === "unknown") return escapeHtml(mode);
+  const icon = CLIMATE_MODE_ICONS[mode] ? `${CLIMATE_MODE_ICONS[mode]} ` : "";
+  const setpoint = getThermostatSetpoint(climateId);
+  return `${icon}${setpoint !== null ? escapeHtml(formatTemperature(setpoint)) : escapeHtml(mode)}`;
+}
+
 function isThermostatHeating(thermostatId) {
   const entity = findState(thermostatId);
   return entity?.attributes?.hvac_action === "heating";
@@ -1071,27 +1232,6 @@ function openEntityMoreInfo(entityId) {
 function isAnyWindowOpen(room) {
   const sensors = Array.isArray(room.window_sensors) ? room.window_sensors : [];
   return sensors.some((id) => isWindowOpen(id));
-}
-
-function roomTitleMeta(room, roomId) {
-  const heating = isRoomHeating(roomId);
-  const windowOpen = isAnyWindowOpen(room);
-
-  const metaParts = [];
-
-  if (heating) {
-    metaParts.push(
-      `<span class="room-heating" title="${escapeHtml(t("room_heating_now"))}">🔥</span>`
-    );
-  }
-
-  if (windowOpen) {
-    metaParts.push(
-      `<span class="room-window-open" title="${escapeHtml(t("room_window_open"))}">🪟</span>`
-    );
-  }
-
-  return metaParts.join(" ");
 }
 
 function renderVersion() {
@@ -1250,6 +1390,7 @@ function addCircuit() {
     main_thermostat: "",
     main_switch: "",
     main_sensor: "",
+    idle_temperature: null,
     enabled: true,
   };
   pendingCircuits = { ...state.config.circuits };
@@ -1298,6 +1439,19 @@ function createCircuitCard(circuitId, circuit) {
         <label>${escapeHtml(t("circuit_sensor"))}</label>
         <div class="circuit-sensor-picker"></div>
       </div>
+      <div class="field circuit-idle-field"${circuit.control_type === "switch" ? ' style="display:none;"' : ""}>
+        <label>${escapeHtml(t("main_idle_temperature"))}</label>
+        <input
+          class="circuit-idle-temperature"
+          type="number"
+          min="5"
+          max="30"
+          step="0.5"
+          placeholder="${escapeHtml(t("idle_temperature_placeholder"))}"
+          value="${circuit.idle_temperature ?? ""}"
+        />
+        <div class="footer-note" style="margin-top:6px;">${escapeHtml(t("idle_temperature_hint"))}</div>
+      </div>
     </div>
   `;
 
@@ -1307,6 +1461,7 @@ function createCircuitCard(circuitId, circuit) {
     card.querySelector(".circuit-thermostat-field").style.display = isSwitch ? "none" : "";
     card.querySelector(".circuit-switch-field").style.display = isSwitch ? "" : "none";
     card.querySelector(".circuit-sensor-field").style.display = isSwitch ? "none" : "";
+    card.querySelector(".circuit-idle-field").style.display = isSwitch ? "none" : "";
   });
 
   const enabledCheckbox = card.querySelector(".circuit-enabled-checkbox");
@@ -1665,6 +1820,14 @@ async function loadAllStates() {
     state.allStates.filter((item) => item.entity_id?.startsWith("switch."))
   );
 
+  state.switchActuators = sortByEntityId(
+    state.allStates.filter(
+      (item) =>
+        item.entity_id?.startsWith("switch.") ||
+        item.entity_id?.startsWith("input_boolean.")
+    )
+  );
+
   state.binarySensors = sortByEntityId(
     state.allStates.filter((item) =>
       item.entity_id?.startsWith("binary_sensor.")
@@ -1677,6 +1840,7 @@ async function loadConfig() {
     (s) => s.entity_id === CONFIG_ENTITY_ID
   );
   state.config = normalizeConfig(entity?.attributes || {});
+  state.roomStatus = entity?.attributes?.room_status || {};
 }
 
 function updateMainControlTypeVisibility(type) {
@@ -1684,6 +1848,9 @@ function updateMainControlTypeVisibility(type) {
   if (els.mainThermostatField) els.mainThermostatField.style.display = isSwitch ? "none" : "";
   if (els.mainSwitchField) els.mainSwitchField.style.display = isSwitch ? "" : "none";
   if (els.mainSensorField) els.mainSensorField.style.display = isSwitch ? "none" : "";
+  if (els.mainIdleTemperatureField) {
+    els.mainIdleTemperatureField.style.display = isSwitch ? "none" : "";
+  }
 }
 
 function renderGlobalSettings() {
@@ -1691,6 +1858,10 @@ function renderGlobalSettings() {
 
   els.enabled.checked = cfg.enabled;
   els.boostDelta.value = String(cfg.boost_delta);
+  if (els.mainIdleTemperature) {
+    els.mainIdleTemperature.value =
+      cfg.main_idle_temperature === null ? "" : String(cfg.main_idle_temperature);
+  }
   els.tolerance.value = String(cfg.tolerance);
   els.nightStart.value = cfg.night_start;
   els.morningBoostStart.value = cfg.morning_boost_start;
@@ -1777,6 +1948,18 @@ function renderGlobalSettings() {
     );
   }
 
+  if (els.outdoorCutoffHysteresis) {
+    els.outdoorCutoffHysteresis.value = String(
+      normalizeNumber(cfg.outdoor_cutoff_hysteresis, DEFAULTS.outdoor_cutoff_hysteresis)
+    );
+  }
+
+  if (els.outdoorMinRoomTemperature) {
+    els.outdoorMinRoomTemperature.value = String(
+      normalizeNumber(cfg.outdoor_min_room_temperature, DEFAULTS.outdoor_min_room_temperature)
+    );
+  }
+
   if (els.globalTargetDay) {
     els.globalTargetDay.value = String(normalizeNumber(cfg.global_target_day, DEFAULTS.global_target_day));
   }
@@ -1833,6 +2016,40 @@ function appendWindowSensorRow(listEl, roomId, sensorId) {
   });
 }
 
+function appendSwitchActuatorRow(listEl, roomId, switchId) {
+  const index = listEl.children.length;
+  const pickerId = `room_${roomId}_switch_actuator_${index}`;
+
+  const row = document.createElement("div");
+  row.className = "room-switch-actuator-row";
+  row.style.cssText = "display:flex; gap:8px; align-items:center; margin-bottom:6px;";
+  row.dataset.switchPickerId = pickerId;
+
+  const pickerContainer = document.createElement("div");
+  pickerContainer.style.flex = "1";
+
+  const removeBtn = document.createElement("button");
+  removeBtn.type = "button";
+  removeBtn.className = "ghost";
+  removeBtn.style.cssText = "padding:8px 10px; flex-shrink:0;";
+  removeBtn.textContent = "✕";
+  removeBtn.addEventListener("click", () => row.remove());
+
+  row.appendChild(pickerContainer);
+  row.appendChild(removeBtn);
+  listEl.appendChild(row);
+
+  createEntityPicker({
+    container: pickerContainer,
+    pickerId,
+    items: state.switchActuators || [],
+    getItems: () => state.switchActuators || [],
+    selectedValue: switchId || "",
+    emptyLabel: t("select_not_set"),
+    onChange: () => {},
+  });
+}
+
 function appendExtraThermostatRow(listEl, roomId, thermostatId) {
   const index = listEl.children.length;
   const pickerId = `room_${roomId}_extra_thermostat_${index}`;
@@ -1871,11 +2088,7 @@ function createRoomCard(roomId, room) {
   const wrapper = document.createElement("div");
   wrapper.className = "room";
   wrapper.dataset.roomId = roomId;
-  wrapper.draggable = true;
 
-  const isCollapsed = roomCollapsedState.get(roomId) === true;
-  const areaText = room.area_id ? `Area: ${room.area_id}` : t("room_manual");
-  const roomMeta = roomTitleMeta(room, roomId);
   const isAdaptive = getModePickerValue() === "adaptive";
   const ovShort = normalizeNumber(room.learned_overshoot_short, 0.2);
   const ovMedium = normalizeNumber(room.learned_overshoot_medium, 0.4);
@@ -1891,45 +2104,31 @@ function createRoomCard(roomId, room) {
 
   wrapper.innerHTML = `
     <div class="room-top">
-      <div style="display:flex; align-items:flex-start; gap:10px; width:100%;">
-        <span class="room-drag-handle" title="Ziehen zum Verschieben" style="cursor:grab; font-size:18px; padding:4px 2px; color:var(--muted); user-select:none; flex-shrink:0;">≡</span>
-        <div style="flex:1; min-width:0;">
-          <div class="room-title-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div class="room-title">${escapeHtml(room.label || roomId)}</div>
-            <div class="room-title-meta" style="display:flex; align-items:center; gap:8px; font-size:14px;">
-              ${roomMeta}
-            </div>
-          </div>
-          <div class="room-subtitle">${escapeHtml(areaText)}</div>
-          ${isAdaptive ? `
-          <div class="room-adaptive room-adaptive-display">
-            <span class="adaptive-bucket">
-              <span style="color:var(--muted)">▲ &lt;15min</span>
-              <span class="adaptive-bucket-value">${ovShort.toFixed(2)} °C</span>
-            </span>
-            <span class="adaptive-bucket">
-              <span style="color:var(--muted)">▲ 15–45min</span>
-              <span class="adaptive-bucket-value">${ovMedium.toFixed(2)} °C</span>
-            </span>
-            <span class="adaptive-bucket">
-              <span style="color:var(--muted)">▲ &gt;45min</span>
-              <span class="adaptive-bucket-value">${ovLong.toFixed(2)} °C</span>
-            </span>
-          </div>` : ""}
-        </div>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; flex-shrink:0;">
-          <span class="pill">
-            <input class="room-enabled" type="checkbox" ${
-              room.enabled ? "checked" : ""
-            } />
-            <span>${escapeHtml(t("room_active"))}</span>
-          </span>
-          <button class="ghost room-schedule-btn" type="button">${escapeHtml(t("room_schedule"))}</button>
-          <button class="danger room-delete-btn" type="button">${escapeHtml(t("room_delete"))}</button>
-          <button class="ghost room-collapse-btn" type="button" title="${isCollapsed ? "Aufklappen" : "Einklappen"}" style="padding:4px 10px; font-size:16px;">${isCollapsed ? "▶" : "▼"}</button>
-        </div>
+      <div class="room-top-row">
+        <span class="pill">
+          <input class="room-enabled" type="checkbox" ${
+            room.enabled ? "checked" : ""
+          } />
+          <span>${escapeHtml(t("room_active"))}</span>
+        </span>
+        <button class="ghost room-schedule-btn" type="button">${escapeHtml(t("room_schedule"))}</button>
       </div>
-      <div class="room-mode-row" style="margin-top:8px; display:flex; align-items:center; gap:8px;">
+      ${isAdaptive ? `
+      <div class="room-adaptive room-adaptive-display">
+        <span class="adaptive-bucket">
+          <span style="color:var(--muted)">▲ &lt;15min</span>
+          <span class="adaptive-bucket-value">${ovShort.toFixed(2)} °C</span>
+        </span>
+        <span class="adaptive-bucket">
+          <span style="color:var(--muted)">▲ 15–45min</span>
+          <span class="adaptive-bucket-value">${ovMedium.toFixed(2)} °C</span>
+        </span>
+        <span class="adaptive-bucket">
+          <span style="color:var(--muted)">▲ &gt;45min</span>
+          <span class="adaptive-bucket-value">${ovLong.toFixed(2)} °C</span>
+        </span>
+      </div>` : ""}
+      <div class="room-mode-row" style="display:flex; align-items:center; gap:8px;">
         <label style="font-size:13px; color:var(--muted); white-space:nowrap;">${escapeHtml(t("room_heating_mode"))}:</label>
         <select class="room-heating-mode" style="font-size:13px; padding:3px 6px;">${modeOptions}</select>
       </div>
@@ -1957,6 +2156,15 @@ function createRoomCard(roomId, room) {
         <button type="button" class="ghost room-add-thermostat-btn" style="width:100%; margin-top:6px; font-size:13px;">
           + ${escapeHtml(t("add_extra_thermostat"))}
         </button>
+      </div>
+
+      <div class="field full">
+        <label>${escapeHtml(t("room_switch_actuators"))}</label>
+        <div class="room-switch-actuators-list"></div>
+        <button type="button" class="ghost room-add-switch-actuator-btn" style="width:100%; margin-top:6px; font-size:13px;">
+          + ${escapeHtml(t("add_switch_actuator"))}
+        </button>
+        <div style="font-size:12px; color:var(--muted); margin-top:4px;">${escapeHtml(t("room_switch_actuators_hint"))}</div>
       </div>
 
       <div class="field">
@@ -2007,7 +2215,10 @@ function createRoomCard(roomId, room) {
       <div style="font-size:13px; font-weight:600; color:var(--muted); margin-bottom:8px;">🌡️ ${escapeHtml(t("room_climate_entity"))}</div>
       <div class="room-grid" style="margin:0;">
         <div class="field full">
-          <label>${escapeHtml(t("room_climate_entity"))}</label>
+          <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span>${escapeHtml(t("room_climate_entity"))}</span>
+            <span class="label-live room-climate-live"></span>
+          </label>
           <div class="room-climate-entity-picker"></div>
         </div>
       </div>
@@ -2019,6 +2230,15 @@ function createRoomCard(roomId, room) {
           </div>
           <div class="toggle-right">
             <input class="room-use-climate" type="checkbox" ${room.use_climate ? "checked" : ""} />
+          </div>
+        </div>
+        <div class="toggle" style="margin-top:6px;">
+          <div class="toggle-text">
+            <strong>${escapeHtml(t("room_climate_heat_boost"))}</strong>
+            <span>${escapeHtml(t("room_climate_heat_boost_hint"))}</span>
+          </div>
+          <div class="toggle-right">
+            <input class="room-climate-heat-boost" type="checkbox" ${room.climate_heat_boost ? "checked" : ""} />
           </div>
         </div>
       </div>
@@ -2104,6 +2324,13 @@ function createRoomCard(roomId, room) {
         </div>
 
         <div class="field">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-weight:normal;">
+            <input type="checkbox" class="room-target-reconcile-enabled" ${room.room_target_reconcile_enabled ? "checked" : ""} />
+            <span>${escapeHtml(t("room_target_reconcile_enabled"))}</span>
+          </label>
+        </div>
+
+        <div class="field">
           <label>${escapeHtml(t("room_floor_area"))}</label>
           <input class="room-floor-area" type="number" min="0" max="500" step="0.5" value="${escapeHtml(
             room.floor_area_m2 ?? 0
@@ -2135,11 +2362,31 @@ function createRoomCard(roomId, room) {
             `).join("")}
           </select>
         </div>` : ""}
+
+        <div class="field">
+          <label>${escapeHtml(t("room_hysteresis"))}</label>
+          <input class="room-hysteresis" type="number" min="0.1" max="5" step="0.1" value="${escapeHtml(
+            room.hysteresis ?? ""
+          )}" />
+        </div>
+
+        <div class="field">
+          <label>${escapeHtml(t("room_switch_min_on"))}</label>
+          <input class="room-switch-min-on" type="number" min="0" max="120" step="1" value="${escapeHtml(
+            String(room.switch_min_on ?? 5)
+          )}" />
+        </div>
+
+        <div class="field">
+          <label>${escapeHtml(t("room_switch_min_off"))}</label>
+          <input class="room-switch-min-off" type="number" min="0" max="120" step="1" value="${escapeHtml(
+            String(room.switch_min_off ?? 5)
+          )}" />
+        </div>
       </div>
     </div>
   `;
 
-  const deleteBtn = wrapper.querySelector(".room-delete-btn");
   const scheduleBtn = wrapper.querySelector(".room-schedule-btn");
 
   createEntityPicker({
@@ -2210,6 +2457,19 @@ function createRoomCard(roomId, room) {
     appendExtraThermostatRow(extraThermostatsList, roomId, "");
   });
 
+  const switchActuatorsList = wrapper.querySelector(".room-switch-actuators-list");
+  const initialSwitchActuators = Array.isArray(room.switch_actuators)
+    ? room.switch_actuators
+    : [];
+
+  for (const switchId of initialSwitchActuators) {
+    appendSwitchActuatorRow(switchActuatorsList, roomId, switchId);
+  }
+
+  wrapper.querySelector(".room-add-switch-actuator-btn").addEventListener("click", () => {
+    appendSwitchActuatorRow(switchActuatorsList, roomId, "");
+  });
+
   const advancedToggle = wrapper.querySelector(".room-advanced-toggle");
   const advancedPanel = wrapper.querySelector(".room-advanced");
   advancedToggle.addEventListener("click", () => {
@@ -2238,164 +2498,542 @@ function createRoomCard(roomId, room) {
   }
   nightSetbackCheckbox.addEventListener("change", updateNightSetbackVisibility);
 
-  deleteBtn.addEventListener("click", () => {
-    delete state.config.rooms[roomId];
-    roomCollapsedState.delete(roomId);
-    renderRooms();
-  });
-
   scheduleBtn.addEventListener("click", () => {
     openScheduleModal(roomId);
   });
 
-  // Collapse / Expand
-  const collapseBtn = wrapper.querySelector(".room-collapse-btn");
-  const roomGrid = wrapper.querySelector(".room-grid");
-  const roomAdvanced = wrapper.querySelector(".room-advanced");
-  const roomModeRow = wrapper.querySelector(".room-mode-row");
+  return wrapper;
+}
 
-  function applyCollapsed(collapsed) {
-    if (roomGrid) roomGrid.style.display = collapsed ? "none" : "";
-    if (roomAdvanced) {
-      // Beim Einklappen: Inline-Style erzwingen + Klasse zurücksetzen
-      // Beim Aufklappen: Inline-Style leeren, damit .hidden-Klasse wieder greift
-      roomAdvanced.style.display = collapsed ? "none" : "";
-      if (collapsed) roomAdvanced.classList.add("hidden");
-    }
-    if (roomModeRow) roomModeRow.style.display = collapsed ? "none" : "";
-    if (collapseBtn) collapseBtn.textContent = collapsed ? "▶" : "▼";
+// Räume in Anzeigereihenfolge, bei Heizkreisen nach Kreis gruppiert.
+function getRoomGroups() {
+  const entries = Object.entries(state.config.rooms || {});
+  entries.sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
+
+  const circuits = state.config.circuits || {};
+  if (!Object.keys(circuits).length) {
+    return [{ label: null, rooms: entries }];
   }
 
-  applyCollapsed(isCollapsed);
+  const byCircuit = {};
+  for (const entry of entries) {
+    const circuitId = circuits[entry[1].circuit_id] ? entry[1].circuit_id : "";
+    (byCircuit[circuitId] ||= []).push(entry);
+  }
 
-  collapseBtn.addEventListener("click", () => {
-    const nowCollapsed = roomCollapsedState.get(roomId) !== true;
-    roomCollapsedState.set(roomId, nowCollapsed);
-    applyCollapsed(nowCollapsed);
-  });
+  const groups = Object.keys(circuits)
+    .filter((circuitId) => byCircuit[circuitId])
+    .map((circuitId) => ({
+      label: circuits[circuitId]?.label || circuitId,
+      rooms: byCircuit[circuitId],
+    }));
 
-  // Drag and Drop
-  wrapper.addEventListener("dragstart", (e) => {
-    dragSrcRoomId = roomId;
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", roomId);
-    wrapper.style.opacity = "0.5";
-  });
-
-  wrapper.addEventListener("dragend", () => {
-    wrapper.style.opacity = "";
-    els.roomsContainer.querySelectorAll(".room").forEach(n => n.classList.remove("drag-over"));
-  });
-
-  wrapper.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    els.roomsContainer.querySelectorAll(".room").forEach(n => n.classList.remove("drag-over"));
-    wrapper.classList.add("drag-over");
-  });
-
-  wrapper.addEventListener("dragleave", () => {
-    wrapper.classList.remove("drag-over");
-  });
-
-  wrapper.addEventListener("drop", (e) => {
-    e.preventDefault();
-    wrapper.classList.remove("drag-over");
-    if (!dragSrcRoomId || dragSrcRoomId === roomId) return;
-
-    const srcNode = els.roomsContainer.querySelector(`.room[data-room-id="${dragSrcRoomId}"]`);
-    if (!srcNode) return;
-
-    const allNodes = [...els.roomsContainer.querySelectorAll(".room")];
-    const srcIdx = allNodes.indexOf(srcNode);
-    const dstIdx = allNodes.indexOf(wrapper);
-
-    if (srcIdx < dstIdx) {
-      wrapper.after(srcNode);
-    } else {
-      wrapper.before(srcNode);
-    }
-
-    // Update order in state
-    const updatedNodes = [...els.roomsContainer.querySelectorAll(".room")];
-    updatedNodes.forEach((n, i) => {
-      const rid = n.dataset.roomId;
-      if (state.config.rooms[rid]) state.config.rooms[rid].order = i;
-    });
-
-    dragSrcRoomId = null;
-  });
-
-  return wrapper;
+  if (byCircuit[""]) {
+    groups.push({ label: t("circuit_none"), rooms: byCircuit[""] });
+  }
+  return groups;
 }
 
 function renderRooms() {
   if (!els.roomsContainer) return;
   els.roomsContainer.innerHTML = "";
 
-  const entries = Object.entries(state.config.rooms || {});
-  if (!entries.length) {
-    const empty = document.createElement("div");
-    empty.className = "muted";
-    empty.textContent = t("no_rooms");
-    els.roomsContainer.appendChild(empty);
+  for (const group of getRoomGroups()) {
+    for (const [roomId, room] of group.rooms) {
+      els.roomsContainer.appendChild(createRoomCard(roomId, room));
+    }
+  }
+
+  applyActiveEditPane();
+  renderTiles();
+}
+
+function formatTileNumber(value) {
+  return Number(value).toLocaleString(UI_LANG, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
+
+function formatTileTemperature(value) {
+  return `${formatTileNumber(value)} °C`;
+}
+
+function getRoomTileInfo(roomId, room) {
+  const live = state.roomStatus?.[roomId] || {};
+  const tempSrc = room.sensor || room.thermostat;
+  const actual = tempSrc ? getSensorTemperature(tempSrc) : null;
+  const target = Number.isFinite(live.target) ? live.target : Number(room.target_day);
+
+  let note = "";
+  if (!live.cooling) {
+    if (state.config.vacation_enabled) note = t("note_vacation");
+    else if (live.away_active) note = t("note_away");
+    else if (live.outdoor_minimum_active) note = t("note_minimum");
+  }
+
+  const status = (cls, icon, label) => ({ cls, icon, label, actual, target, note });
+
+  if (!room.enabled) return status("off", "", t("status_disabled"));
+  if (state.config.enabled === false) return status("off", "", t("status_control_off"));
+  if (live.reason === "sensor_fault") return status("fault", "⚠️", t("status_sensor_fault"));
+  if (live.reason === "window_pause") return status("pause", "🪟", t("status_window_pause"));
+
+  if (live.cooling) {
+    const action = findState(room.climate_entity)?.attributes?.hvac_action;
+    const cooling = action ? action === "cooling" : actual !== null && actual > target;
+    return cooling ? status("cooling", "❄️", t("status_cooling")) : status("idle", "", t("status_idle"));
+  }
+
+  // Ohne Raumsensor regelt das Gerät selbst, der Raumzustand bleibt dann idle.
+  const heatedByAc = Boolean(room.climate_entity && room.use_climate);
+  const deviceHeating =
+    !room.sensor && isThermostatHeating(heatedByAc ? room.climate_entity : room.thermostat);
+  if (live.state === "heating" || deviceHeating) {
+    return status("heating", "🔥", t(heatedByAc ? "status_heating_ac" : "status_heating"));
+  }
+
+  if (live.state === "residual_hold") return status("idle", "", t("status_residual"));
+  if (isAnyWindowOpen(room)) return status("pause", "🪟", t("status_window_open"));
+  if (live.reason === "outdoor_cutoff") return status("pause", "", t("status_cutoff"));
+  return status("idle", "", t("status_idle"));
+}
+
+function roomTileGauge(actual, target) {
+  // Skala 14–28 °C: Punkt = Ist-Temperatur, Strich = Zieltemperatur
+  const position = (value) => Math.min(100, Math.max(0, ((value - 14) / 14) * 100));
+  const goal = Number.isFinite(target)
+    ? `<i class="goal" style="left:${position(target)}%"></i>`
+    : "";
+  const now = actual !== null ? `<i class="now" style="left:${position(actual)}%"></i>` : "";
+  return `<div class="tile-gauge" aria-hidden="true">${goal}${now}</div>`;
+}
+
+function roomTileHtml(room, info) {
+  const temp = info.actual !== null ? formatTileNumber(info.actual) : "–";
+  const target = Number.isFinite(info.target) ? formatTileTemperature(info.target) : "–";
+  const note = info.note ? ` · ${escapeHtml(info.note)}` : "";
+  const icon = info.icon ? `<span aria-hidden="true">${info.icon}</span>` : "";
+  return `
+    <div class="tile-name">${escapeHtml(room.label)}</div>
+    <div class="tile-reading">
+      <div class="tile-temp">${temp}<small>°C</small></div>
+      <div class="tile-target">${escapeHtml(t("tile_target"))} ${target}${note}</div>
+    </div>
+    <div class="tile-foot">
+      ${roomTileGauge(info.actual, info.target)}
+      <span class="tile-pill">${icon}${escapeHtml(info.label)}</span>
+    </div>
+  `;
+}
+
+function globalTileHtml() {
+  const cfg = state.config;
+  const liveList = Object.values(state.roomStatus || {});
+  const activeRooms = Object.entries(cfg.rooms || {}).filter(([, room]) => room.enabled);
+  const countIn = (cls) =>
+    activeRooms.filter(([roomId, room]) => getRoomTileInfo(roomId, room).cls === cls).length;
+
+  const coolingActive = liveList.some((live) => live.cooling_active);
+  let operation = t("op_normal");
+  if (cfg.vacation_enabled) operation = t("op_vacation");
+  else if (cfg.away_enabled) operation = t("op_away");
+  else if (coolingActive) operation = t("op_cooling");
+  else if (liveList.some((live) => live.outdoor_cutoff_active)) operation = t("op_cutoff");
+
+  const outdoor = cfg.outdoor_sensor ? getSensorTemperature(cfg.outdoor_sensor) : null;
+  const outdoorRow =
+    outdoor !== null
+      ? `<dt>${escapeHtml(t("tile_outdoor"))}</dt><dd>${formatTileTemperature(outdoor)}</dd>`
+      : "";
+
+  const running = t(coolingActive ? "tile_running_cool" : "tile_running_heat")
+    .replace("{count}", countIn(coolingActive ? "cooling" : "heating"))
+    .replace("{total}", activeRooms.length);
+
+  return `
+    <div class="tile-name">${escapeHtml(t("global_settings"))}</div>
+    <dl class="tile-kv">
+      <dt>${escapeHtml(t("tile_control"))}</dt>
+      <dd>${escapeHtml(t(cfg.enabled ? "tile_control_on" : "tile_control_off"))}</dd>
+      <dt>${escapeHtml(t("tile_operation"))}</dt><dd>${escapeHtml(operation)}</dd>
+      ${outdoorRow}
+      <dt>${escapeHtml(t("tile_heating_mode"))}</dt>
+      <dd>${escapeHtml(t(`mode_${cfg.heating_mode}`))}</dd>
+    </dl>
+    <div class="tile-foot"><span class="tile-pill">${escapeHtml(running)}</span></div>
+  `;
+}
+
+function setTileContent(tile, className, ariaLabel, html) {
+  // Nur bei Änderung schreiben: Live-Updates kommen bei jedem HA-Ereignis.
+  if (tile.dataset.className !== className) {
+    tile.className = className;
+    tile.dataset.className = className;
+  }
+  if (tile.getAttribute("aria-label") !== ariaLabel) {
+    tile.setAttribute("aria-label", ariaLabel);
+  }
+  if (tile.tileHtml !== html) {
+    tile.innerHTML = html;
+    tile.tileHtml = html;
+  }
+}
+
+function updateTile(tile) {
+  if (tile.dataset.tile === "global") {
+    setTileContent(tile, "tile global", t("global_settings"), globalTileHtml());
+    return;
+  }
+  if (tile.dataset.tile !== "room") {
     return;
   }
 
-  // Sort by order field
-  entries.sort((a, b) => (a[1].order ?? 0) - (b[1].order ?? 0));
+  const room = state.config.rooms?.[tile.dataset.roomId];
+  if (!room) {
+    return;
+  }
+  const info = getRoomTileInfo(tile.dataset.roomId, room);
+  const dragging = tile.classList.contains("dragging") ? " dragging" : "";
+  const dragOver = tile.classList.contains("drag-over") ? " drag-over" : "";
+  setTileContent(
+    tile,
+    `tile ${info.cls}${dragging}${dragOver}`,
+    `${room.label}: ${info.label}. ${t("tile_open")}`,
+    roomTileHtml(room, info)
+  );
+}
 
-  const circuits = state.config.circuits || {};
-  const hasCircuits = Object.keys(circuits).length > 0;
+function updateTiles() {
+  els.tileWall?.querySelectorAll(".tile").forEach(updateTile);
+}
 
-  if (!hasCircuits) {
-    for (const [roomId, room] of entries) {
-      els.roomsContainer.appendChild(createRoomCard(roomId, room));
+function createTile(kind, roomId = "") {
+  const tile = document.createElement("div");
+  tile.setAttribute("role", "button");
+  tile.tabIndex = 0;
+  tile.dataset.tile = kind;
+
+  const open = () => {
+    if (kind === "add") {
+      openNewRoomModal();
+      return;
     }
+    syncFormsWithConfig();
+    if (kind === "global") openEditModal("global");
+    else openEditModal("room", roomId);
+  };
+
+  tile.addEventListener("click", open);
+  tile.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      open();
+    }
+  });
+
+  if (kind === "add") {
+    tile.className = "tile add";
+    tile.innerHTML = `<span class="tile-add-icon" aria-hidden="true">+</span>${escapeHtml(t("add_room"))}`;
+  } else if (kind === "room") {
+    tile.dataset.roomId = roomId;
+    bindTileDrag(tile, roomId);
+  }
+
+  updateTile(tile);
+  return tile;
+}
+
+function bindTileDrag(tile, roomId) {
+  tile.draggable = true;
+
+  tile.addEventListener("dragstart", (e) => {
+    dragSrcRoomId = roomId;
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", roomId);
+    tile.classList.add("dragging");
+  });
+
+  tile.addEventListener("dragend", () => {
+    dragSrcRoomId = null;
+    tile.classList.remove("dragging");
+    els.tileWall.querySelectorAll(".drag-over").forEach((n) => n.classList.remove("drag-over"));
+  });
+
+  tile.addEventListener("dragover", (e) => {
+    if (!dragSrcRoomId || dragSrcRoomId === roomId) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    tile.classList.add("drag-over");
+  });
+
+  tile.addEventListener("dragleave", () => {
+    tile.classList.remove("drag-over");
+  });
+
+  tile.addEventListener("drop", (e) => {
+    e.preventDefault();
+    tile.classList.remove("drag-over");
+    const srcRoomId = dragSrcRoomId;
+    dragSrcRoomId = null;
+    if (srcRoomId && srcRoomId !== roomId) {
+      moveRoom(srcRoomId, roomId);
+    }
+  });
+}
+
+function moveRoom(srcRoomId, dstRoomId) {
+  const ids = getRoomGroups().flatMap((group) => group.rooms.map(([roomId]) => roomId));
+  const srcIdx = ids.indexOf(srcRoomId);
+  const dstIdx = ids.indexOf(dstRoomId);
+  ids.splice(srcIdx, 1);
+  ids.splice(dstIdx, 0, srcRoomId);
+  ids.forEach((roomId, index) => {
+    state.config.rooms[roomId].order = index;
+  });
+
+  renderRooms();
+  saveConfig();
+}
+
+function renderTiles() {
+  if (!els.tileWall) return;
+  els.tileWall.innerHTML = "";
+
+  const groups = getRoomGroups();
+  const addGrid = (children) => {
+    const grid = document.createElement("div");
+    grid.className = "tile-grid";
+    grid.append(...children);
+    els.tileWall.appendChild(grid);
+    return grid;
+  };
+
+  const firstGrid = addGrid([createTile("global")]);
+  let lastGrid = firstGrid;
+
+  for (const group of groups) {
+    const tiles = group.rooms.map(([roomId]) => createTile("room", roomId));
+    if (group.label === null) {
+      firstGrid.append(...tiles);
+      continue;
+    }
+    const header = document.createElement("div");
+    header.className = "room-group-header";
+    header.textContent = group.label;
+    els.tileWall.appendChild(header);
+    lastGrid = addGrid(tiles);
+  }
+
+  lastGrid.appendChild(createTile("add"));
+}
+
+// ─── Edit popup ──────────────────────────────────────────────────────────────
+// Global- und Raumformulare bleiben dauerhaft im DOM, weil collectFormState()
+// immer alle liest. Das Popup blendet nur das gerade bearbeitete ein.
+function applyActiveEditPane() {
+  const session = editSession;
+  els.globalForm?.classList.toggle("active", session?.kind === "global");
+  els.roomsContainer?.querySelectorAll(".room").forEach((node) => {
+    node.classList.toggle("active", session?.kind === "room" && node.dataset.roomId === session.roomId);
+  });
+}
+
+function updateEditHeader() {
+  if (!editSession) return;
+
+  if (editSession.kind === "global") {
+    els.editModalTitle.textContent = t("global_settings");
+    els.editModalLive.textContent = "";
     return;
   }
 
-  // Group rooms by circuit_id
-  const groups = {};
-  for (const [roomId, room] of entries) {
-    const cid = room.circuit_id || "";
-    if (!groups[cid]) groups[cid] = [];
-    groups[cid].push([roomId, room]);
-  }
+  const room = state.config.rooms?.[editSession.roomId];
+  if (!room) return;
 
-  // Render circuit groups in circuit order, then ungrouped
-  const circuitOrder = Object.keys(circuits);
-  const renderedCids = new Set();
+  const labelInput = els.roomsContainer.querySelector(
+    `.room[data-room-id="${CSS.escape(editSession.roomId)}"] .room-label`
+  );
+  els.editModalTitle.textContent = labelInput?.value.trim() || room.label;
 
-  for (const cid of circuitOrder) {
-    if (!groups[cid]) continue;
-    renderedCids.add(cid);
-    const header = document.createElement("div");
-    header.className = "room-group-header";
-    header.textContent = circuits[cid]?.label || cid;
-    els.roomsContainer.appendChild(header);
-    for (const [roomId, room] of groups[cid]) {
-      els.roomsContainer.appendChild(createRoomCard(roomId, room));
-    }
-  }
+  const info = getRoomTileInfo(editSession.roomId, room);
+  const actual =
+    info.actual !== null
+      ? `${t("tile_now")} ${formatTileTemperature(info.actual)}`
+      : t("tile_no_reading");
+  const target = Number.isFinite(info.target)
+    ? ` · ${t("tile_target")} ${formatTileTemperature(info.target)}`
+    : "";
+  els.editModalLive.textContent = editSession.isNew ? "" : `${actual}${target} · ${info.label}`;
+}
 
-  // Rooms with no/invalid circuit_id
-  const unassigned = groups[""] || [];
-  for (const [cid, roomList] of Object.entries(groups)) {
-    if (!renderedCids.has(cid) && cid !== "") {
-      unassigned.push(...roomList);
-    }
-  }
+function setEditConfirm(mode) {
+  editSession.confirm = mode;
+  const hasConfirm = mode !== null;
 
-  if (unassigned.length) {
-    const header = document.createElement("div");
-    header.className = "room-group-header";
-    header.textContent = t("circuit_none");
-    els.roomsContainer.appendChild(header);
-    for (const [roomId, room] of unassigned) {
-      els.roomsContainer.appendChild(createRoomCard(roomId, room));
-    }
+  els.saveBtn.classList.toggle("hidden", hasConfirm);
+  els.editConfirm.classList.toggle("hidden", !hasConfirm);
+  els.editDelete.classList.toggle(
+    "hidden",
+    hasConfirm || editSession.kind !== "room" || editSession.isNew
+  );
+
+  if (mode === "discard") {
+    els.editQuestion.textContent = t("edit_discard_question");
+    els.editConfirm.textContent = t("edit_discard_confirm");
+    els.editCancel.textContent = t("edit_keep_editing");
+  } else if (mode === "delete") {
+    const name = state.config.rooms?.[editSession.roomId]?.label || "";
+    els.editQuestion.textContent = t("edit_delete_question").replace("{name}", name);
+    els.editConfirm.textContent = t("edit_delete");
+    els.editCancel.textContent = t("edit_delete_keep");
+  } else {
+    els.editQuestion.textContent = "";
+    els.editCancel.textContent = t("edit_cancel");
   }
+}
+
+function openEditModal(kind, roomId = null, { isNew = false, snapshot = null } = {}) {
+  editSession = {
+    kind,
+    roomId,
+    isNew,
+    snapshot: snapshot || structuredClone(state.config),
+    baseline: JSON.stringify(collectFormState()),
+    confirm: null,
+  };
+
+  applyActiveEditPane();
+  setEditConfirm(null);
+  updateEditHeader();
+  els.editStatus.className = "status edit-status hidden";
+  els.editModal.classList.remove("hidden");
+  els.mainWrap.inert = true;
+  els.editModalBody.scrollTop = 0;
+
+  if (isNew) {
+    const labelInput = els.roomsContainer.querySelector(
+      `.room[data-room-id="${CSS.escape(roomId)}"] .room-label`
+    );
+    labelInput?.focus();
+    labelInput?.select();
+  } else {
+    els.editModalContent.focus();
+  }
+}
+
+// Formulare vor jeder Bearbeitung aus der aktuellen Konfiguration neu aufbauen.
+// Gespeichert wird immer der komplette Formularstand: Eine veraltete Auswahl
+// (z. B. eine auf einem anderen Gerät nachträglich gesetzte Klimaanlage) würde
+// sonst beim nächsten Speichern zurückgeschrieben.
+function syncFormsWithConfig() {
+  if (editSession) return;
+  entityPickerState.clear();
+  renderGlobalSettings();
+  renderRooms();
+  // Live-Werte neben den Entitäten (Sollwert, Ist-Temperatur) wieder füllen.
+  updateRoomLiveState();
+}
+
+function openNewRoomModal() {
+  syncFormsWithConfig();
+  const snapshot = structuredClone(state.config);
+  const roomId = addRoom();
+  openEditModal("room", roomId, { isNew: true, snapshot });
+}
+
+function closeEditModal() {
+  const session = editSession;
+  editSession = null;
+  isEditing = false;
+
+  els.editModal.classList.add("hidden");
+  els.mainWrap.inert = false;
+  applyActiveEditPane();
+  updateRoomLiveState();
+
+  const selector =
+    session?.kind === "room"
+      ? `.tile[data-room-id="${CSS.escape(session.roomId)}"]`
+      : '.tile[data-tile="global"]';
+  (els.tileWall.querySelector(selector) || els.tileWall.querySelector(".tile"))?.focus();
+}
+
+function restoreEditSnapshot() {
+  state.config = editSession.snapshot;
+  pendingCircuits = null;
+  entityPickerState.clear();
+  renderGlobalSettings();
+  renderRooms();
+}
+
+function discardEdit() {
+  restoreEditSnapshot();
+  closeEditModal();
+}
+
+function requestCloseEdit() {
+  if (!editSession) return;
+  if (JSON.stringify(collectFormState()) === editSession.baseline) {
+    discardEdit();
+  } else {
+    setEditConfirm("discard");
+  }
+}
+
+async function saveEdit() {
+  if (await saveConfig()) {
+    closeEditModal();
+  }
+}
+
+async function deleteEditedRoom() {
+  const { roomId } = editSession;
+  delete state.config.rooms[roomId];
+  renderRooms();
+
+  if (await saveConfig()) {
+    closeEditModal();
+    return;
+  }
+  restoreEditSnapshot();
+  setEditConfirm(null);
+}
+
+function bindEditModalEvents() {
+  els.saveBtn.addEventListener("click", saveEdit);
+  els.editModalClose.setAttribute("aria-label", t("edit_close"));
+  els.editModalClose.addEventListener("click", requestCloseEdit);
+  els.editDelete.addEventListener("click", () => setEditConfirm("delete"));
+
+  els.editCancel.addEventListener("click", () => {
+    if (editSession?.confirm) setEditConfirm(null);
+    else requestCloseEdit();
+  });
+
+  els.editConfirm.addEventListener("click", () => {
+    if (editSession?.confirm === "discard") discardEdit();
+    else if (editSession?.confirm === "delete") deleteEditedRoom();
+  });
+
+  els.editModal.addEventListener("mousedown", (e) => {
+    if (e.target === els.editModal) requestCloseEdit();
+  });
+
+  els.editModalBody.addEventListener("input", (e) => {
+    if (e.target.classList.contains("room-label")) updateEditHeader();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || !editSession) return;
+    // Darüber liegende Dialoge (Wochenplan, Entity-Auswahl, Hilfe) gehen vor.
+    const otherModalOpen = [...document.querySelectorAll(".modal:not(.hidden)")].some(
+      (modal) => modal !== els.editModal
+    );
+    if (otherModalOpen) return;
+    if (editSession.confirm) setEditConfirm(null);
+    else requestCloseEdit();
+  });
 }
 
 function updateRoomLiveState() {
@@ -2409,11 +3047,6 @@ function updateRoomLiveState() {
       continue;
     }
 
-    const titleMeta = node.querySelector(".room-title-meta");
-    if (titleMeta) {
-      titleMeta.innerHTML = roomTitleMeta(room, roomId);
-    }
-
     // live thermostat label: setpoint + heating indicator
     const thermostatLive = node.querySelector(".room-thermostat-live");
     if (thermostatLive) {
@@ -2425,6 +3058,19 @@ function updateRoomLiveState() {
       } else {
         thermostatLive.textContent = "";
         delete thermostatLive.dataset.entity;
+      }
+    }
+
+    // live climate label: mode + setpoint of the air conditioner
+    const climateLive = node.querySelector(".room-climate-live");
+    if (climateLive) {
+      const html = room.climate_entity ? getClimateLiveHtml(room.climate_entity) : "";
+      if (html) {
+        climateLive.innerHTML = html;
+        climateLive.dataset.entity = room.climate_entity;
+      } else {
+        climateLive.textContent = "";
+        delete climateLive.dataset.entity;
       }
     }
 
@@ -2458,6 +3104,8 @@ function updateRoomLiveState() {
   }
 
   updateMainLiveStatus();
+  updateTiles();
+  updateEditHeader();
 }
 
 function collectFormState() {
@@ -2468,6 +3116,9 @@ function collectFormState() {
   cfg.main_thermostat = getEntityPickerValue("global_main_thermostat_picker");
   cfg.main_switch = getEntityPickerValue("global_main_switch_picker");
   cfg.main_sensor = getEntityPickerValue("global_main_sensor_picker");
+  if (els.mainIdleTemperature) {
+    cfg.main_idle_temperature = normalizeOptionalNumber(els.mainIdleTemperature.value);
+  }
   cfg.boost_delta = normalizeNumber(els.boostDelta.value, DEFAULTS.boost_delta);
   cfg.tolerance = normalizeNumber(els.tolerance.value, DEFAULTS.tolerance);
   cfg.heating_mode = normalizeHeatingMode(getModePickerValue());
@@ -2504,6 +3155,12 @@ function collectFormState() {
   cfg.outdoor_temp_cutoff = els.outdoorTempCutoff
     ? normalizeNumber(els.outdoorTempCutoff.value, DEFAULTS.outdoor_temp_cutoff)
     : DEFAULTS.outdoor_temp_cutoff;
+  cfg.outdoor_cutoff_hysteresis = els.outdoorCutoffHysteresis
+    ? Math.max(0, normalizeNumber(els.outdoorCutoffHysteresis.value, DEFAULTS.outdoor_cutoff_hysteresis))
+    : DEFAULTS.outdoor_cutoff_hysteresis;
+  cfg.outdoor_min_room_temperature = els.outdoorMinRoomTemperature
+    ? Math.max(0, normalizeNumber(els.outdoorMinRoomTemperature.value, DEFAULTS.outdoor_min_room_temperature))
+    : DEFAULTS.outdoor_min_room_temperature;
 
   cfg.global_target_day = els.globalTargetDay
     ? normalizeNumber(els.globalTargetDay.value, DEFAULTS.global_target_day)
@@ -2536,6 +3193,12 @@ function collectFormState() {
       extra_thermostats: [...node.querySelectorAll(".room-extra-thermostat-row")].map(
         (row) => getEntityPickerValue(row.dataset.thermostatPickerId)
       ).filter(Boolean),
+      switch_actuators: [...node.querySelectorAll(".room-switch-actuator-row")].map(
+        (row) => getEntityPickerValue(row.dataset.switchPickerId)
+      ).filter(Boolean),
+      hysteresis: node.querySelector(".room-hysteresis")?.value ?? "",
+      switch_min_on: node.querySelector(".room-switch-min-on")?.value || undefined,
+      switch_min_off: node.querySelector(".room-switch-min-off")?.value || undefined,
       sensor: getEntityPickerValue(`room_${roomId}_sensor_picker`) || "",
       window_sensors: [...node.querySelectorAll(".room-window-sensor-row")].map(
         (row) => getEntityPickerValue(row.dataset.wsPickerId)
@@ -2551,6 +3214,8 @@ function collectFormState() {
       away_temperature: node.querySelector(".room-away-temperature").value,
       floor_area_m2: normalizeNumber(node.querySelector(".room-floor-area")?.value, 0),
       room_away_enabled: node.querySelector(".room-away-enabled")?.checked === true,
+      room_target_reconcile_enabled:
+        node.querySelector(".room-target-reconcile-enabled")?.checked === true,
       weekly_schedule: existingRoom.weekly_schedule || DEFAULT_WEEKLY_SCHEDULE,
       day_start: node.querySelector(".room-day-start").value || "",
       night_start: node.querySelector(".room-night-start").value || "",
@@ -2562,6 +3227,7 @@ function collectFormState() {
       room_heating_mode: node.querySelector(".room-heating-mode")?.value || "",
       climate_entity: getEntityPickerValue(`room_${roomId}_climate_picker`) || "",
       use_climate: node.querySelector(".room-use-climate")?.checked === true,
+      climate_heat_boost: node.querySelector(".room-climate-heat-boost")?.checked === true,
       cool_target_day: normalizeNumber(node.querySelector(".room-cool-target-day")?.value, 23.0),
       cool_target_night: normalizeNumber(node.querySelector(".room-cool-target-night")?.value, 24.0),
       climate_fan_mode: node.querySelector(".room-climate-fan-mode")?.value || "auto",
@@ -2588,10 +3254,15 @@ function collectFormState() {
         getEntityPickerValue(`circuit_${circuitId}_switch_picker`) || "",
       main_sensor:
         getEntityPickerValue(`circuit_${circuitId}_sensor_picker`) || "",
+      idle_temperature: node.querySelector(".circuit-idle-temperature")?.value ?? "",
       enabled: node.querySelector(".circuit-enabled-checkbox")?.checked !== false,
     });
   }
   cfg.circuits = circuits;
+
+  // Live-Status gehört nicht in die gespeicherte Konfiguration.
+  delete cfg.room_states;
+  delete cfg.room_status;
 
   return normalizeConfig(cfg);
 }
@@ -2608,6 +3279,10 @@ function addRoom() {
     area_id: "",
     thermostat: "",
     extra_thermostats: [],
+    switch_actuators: [],
+    hysteresis: null,
+    switch_min_on: 5,
+    switch_min_off: 5,
     sensor: "",
     window_sensor: "",
     window_sensors: [],
@@ -2618,6 +3293,7 @@ function addRoom() {
     target_night: normalizeNumber(els.globalTargetNight?.value, DEFAULTS.global_target_night),
     away_temperature: normalizeNumber(els.globalAwayTemperature?.value, DEFAULTS.global_away_temperature),
     room_away_enabled: false,
+    room_target_reconcile_enabled: false,
     weekly_schedule: structuredClone(DEFAULT_WEEKLY_SCHEDULE),
     day_start: "",
     night_start: "",
@@ -2628,6 +3304,7 @@ function addRoom() {
     room_heating_mode: "",
     climate_entity: "",
     use_climate: false,
+    climate_heat_boost: false,
     cool_target_day: DEFAULTS.room_cool_target_day,
     cool_target_night: DEFAULTS.room_cool_target_night,
     climate_fan_mode: DEFAULTS.room_climate_fan_mode,
@@ -2635,6 +3312,7 @@ function addRoom() {
     climate_hvac_mode: DEFAULTS.room_climate_hvac_mode,
   };
   renderRooms();
+  return roomId;
 }
 
 function applyGlobalTempsToAllRooms() {
@@ -2705,9 +3383,11 @@ async function saveConfig() {
     renderGlobalSettings();
     renderRooms();
     setStatus(t("status_save_ok"), "ok");
+    return true;
   } catch (error) {
     console.error(error);
     setStatus(`${t("status_save_failed")}: ${error.message}`, "err");
+    return false;
   } finally {
     isSaving = false;
     setButtonsDisabled(false);
@@ -2866,7 +3546,6 @@ function openScheduleModal(roomId) {
   }
 
   scheduleRoomId = roomId;
-  currentScheduleDay = "monday";
   draftWeeklySchedule = normalizeWeeklySchedule(room.weekly_schedule);
 
   if (els.scheduleModalTitle) {
@@ -2875,139 +3554,453 @@ function openScheduleModal(roomId) {
   }
 
   els.scheduleModal.classList.remove("hidden");
-  renderScheduleEditor();
+  renderScheduleCalendar();
+
+  // scroll to 07:00
+  requestAnimationFrame(() => {
+    const wrap = els.scheduleModal?.querySelector(".schedule-calendar-wrap");
+    if (wrap) wrap.scrollTop = calMinToPx(7 * 60) - 36;
+  });
 }
 
 function closeScheduleModal() {
   scheduleRoomId = null;
-  currentScheduleDay = "monday";
   draftWeeklySchedule = null;
-  els.scheduleEntries.innerHTML = "";
+  if (els.scheduleCalendar) els.scheduleCalendar.innerHTML = "";
   els.scheduleModal.classList.add("hidden");
   closeScheduleCopyModal();
-}
-
-function renderScheduleDayButtons() {
-  els.scheduleDayButtons.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.day === currentScheduleDay);
-    btn.textContent = getDayLabel(btn.dataset.day);
-  });
 }
 
 function sortScheduleEntries(entries) {
   entries.sort((a, b) => a.start.localeCompare(b.start));
 }
 
-function commitScheduleEntryInputs(entry, row, restoreInvalid = false) {
-  const timeInput = row.querySelector(".schedule-time");
-  const tempInput = row.querySelector(".schedule-temp");
-  const normalizedTime = normalizeTime(timeInput?.value, "");
+// ── Calendar helpers ────────────────────────────────
+const CAL_PX_PER_HOUR = 60;
+const CAL_SNAP_MIN = 30;
+const CAL_DAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
 
-  if (normalizedTime) {
-    entry.start = normalizedTime;
-  } else if (restoreInvalid && timeInput) {
-    timeInput.value = entry.start;
+function calMinToPx(min) { return (min / 60) * CAL_PX_PER_HOUR; }
+function calPxToMin(px)  { return (px / CAL_PX_PER_HOUR) * 60; }
+function calSnapMin(min) { return Math.round(min / CAL_SNAP_MIN) * CAL_SNAP_MIN; }
+function calClampMin(min){ return Math.max(0, Math.min(23 * 60 + 30, min)); }
+function calMinToHHMM(min) {
+  min = Math.max(0, Math.min(1439, min));
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+function calHHMMToMin(hhmm) {
+  const [h, m] = String(hhmm || "0:0").split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// ── Calendar render ─────────────────────────────────
+function renderScheduleCalendar() {
+  const cal = els.scheduleCalendar;
+  if (!cal) return;
+  cal.innerHTML = "";
+
+  const totalH = CAL_PX_PER_HOUR * 24;
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+
+  // corner
+  const corner = document.createElement("div");
+  corner.className = "schedule-cal-corner";
+  cal.appendChild(corner);
+
+  // day headers
+  for (const day of CAL_DAYS) {
+    const hdr = document.createElement("div");
+    hdr.className = "schedule-cal-day-hdr" + (day === today ? " today" : "");
+    hdr.textContent = getDayLabel(day);
+    cal.appendChild(hdr);
   }
 
-  if (tempInput?.value !== undefined && tempInput.value !== "") {
-    entry.temperature = normalizeNumber(tempInput.value, entry.temperature);
-  } else if (restoreInvalid && tempInput) {
-    tempInput.value = String(entry.temperature);
+  // time gutter
+  const timeCol = document.createElement("div");
+  timeCol.className = "schedule-cal-time-col";
+  timeCol.style.height = `${totalH}px`;
+  for (let h = 0; h <= 24; h++) {
+    const lbl = document.createElement("div");
+    lbl.className = "schedule-cal-hour-lbl";
+    lbl.style.top = `${calMinToPx(h * 60)}px`;
+    lbl.textContent = `${String(h).padStart(2, "0")}:00`;
+    timeCol.appendChild(lbl);
+  }
+  cal.appendChild(timeCol);
+
+  // day columns
+  for (const day of CAL_DAYS) {
+    cal.appendChild(buildCalDayCol(day, totalH));
   }
 }
 
-function flushScheduleEditorValues() {
-  if (!draftWeeklySchedule || !scheduleRoomId) return;
-  const entries = draftWeeklySchedule[currentScheduleDay];
-  if (!Array.isArray(entries)) return;
-  const rows = els.scheduleEntries.querySelectorAll(".schedule-entry");
-  rows.forEach((row, i) => {
-    if (!entries[i]) return;
-    commitScheduleEntryInputs(entries[i], row);
+function buildCalDayCol(day, totalH) {
+  const col = document.createElement("div");
+  col.className = "schedule-cal-day-col";
+  col.dataset.day = day;
+  col.style.height = `${totalH}px`;
+
+  for (let h = 0; h <= 24; h++) {
+    const hl = document.createElement("div");
+    hl.className = "schedule-cal-hour-line";
+    hl.style.top = `${calMinToPx(h * 60)}px`;
+    col.appendChild(hl);
+    if (h < 24) {
+      const hh = document.createElement("div");
+      hh.className = "schedule-cal-half-line";
+      hh.style.top = `${calMinToPx(h * 60 + 30)}px`;
+      col.appendChild(hh);
+    }
+  }
+
+  renderCalBlocks(day, col);
+
+  col.addEventListener("mousedown", (e) => {
+    if (e.button !== 0 || e.target.closest(".schedule-block")) return;
+    calCreateDragStart(e, col, day);
+  });
+  col.addEventListener("touchstart", (e) => {
+    if (e.target.closest(".schedule-block")) return;
+    e.preventDefault();
+    calCreateDragStart(e.touches[0], col, day, true);
+  }, { passive: false });
+
+  return col;
+}
+
+// Ein Eintrag mit temperature === null ist ein Lücken-Marker: "kein Plan ab hier"
+// (es gilt Standard Tag/Nacht). Er beendet den davor liegenden Block, ist aber unsichtbar.
+function calIsGap(en) { return !!en && en.temperature === null; }
+
+function calClampEndMin(min) {
+  return Math.max(0, Math.min(24 * 60, calSnapMin(Math.round(min))));
+}
+
+function calSortDay(day) {
+  if (!Array.isArray(draftWeeklySchedule[day])) draftWeeklySchedule[day] = [];
+  draftWeeklySchedule[day].sort((a, b) => a.start.localeCompare(b.start));
+  return draftWeeklySchedule[day];
+}
+
+// Entfernt überflüssige Marker (am Tagesanfang oder direkt nach einem anderen Marker)
+function calCleanGaps(day) {
+  const out = [];
+  for (const en of calSortDay(day)) {
+    if (calIsGap(en) && (out.length === 0 || calIsGap(out[out.length - 1]))) continue;
+    out.push(en);
+  }
+  draftWeeklySchedule[day] = out;
+}
+
+function calActiveTempAt(arr, min) {
+  let t = null;
+  for (const en of [...arr].sort((a, b) => a.start.localeCompare(b.start))) {
+    if (calHHMMToMin(en.start) <= min) t = en.temperature;
+    else break;
+  }
+  return t;
+}
+
+// Legt einen Block [startMin, endMin) an. Danach gilt wieder, was vorher dort aktiv war.
+function calInsertBlock(day, startMin, endMin, temperature) {
+  const orig = calSortDay(day);
+  const mins = orig.map(en => calHHMMToMin(en.start));
+  const hasEntryAtEnd = mins.includes(endMin);
+  const restoreTemp = endMin < 24 * 60 ? calActiveTempAt(orig, endMin) : null;
+
+  // der neue Block überschreibt alles im Bereich [startMin, endMin)
+  const arr = orig.filter((en, i) => mins[i] < startMin || mins[i] >= endMin);
+  arr.push({ start: calMinToHHMM(startMin), temperature });
+  if (endMin < 24 * 60 && !hasEntryAtEnd) {
+    arr.push({ start: calMinToHHMM(endMin), temperature: restoreTemp });
+  }
+
+  draftWeeklySchedule[day] = arr;
+  calCleanGaps(day);
+}
+
+function renderCalBlocks(day, col) {
+  col.querySelectorAll(".schedule-block, .schedule-ghost").forEach(b => b.remove());
+  if (!draftWeeklySchedule) return;
+
+  const entries = [...(draftWeeklySchedule[day] || [])].sort((a, b) => a.start.localeCompare(b.start));
+
+  entries.forEach((entry, i) => {
+    if (calIsGap(entry)) return;
+    const startMin = calHHMMToMin(entry.start);
+    const endMin   = i < entries.length - 1 ? calHHMMToMin(entries[i + 1].start) : 24 * 60;
+    const blockH   = Math.max(calMinToPx(endMin - startMin), 22);
+
+    const block = document.createElement("div");
+    block.className = "schedule-block" + (blockH < 56 ? " compact" : "");
+    block.style.top    = `${calMinToPx(startMin)}px`;
+    block.style.height = `${blockH}px`;
+
+    const inner = document.createElement("div");
+    inner.className = "schedule-block-inner";
+
+    const startLbl = document.createElement("div");
+    startLbl.className = "schedule-block-start";
+    startLbl.textContent = entry.start;
+    inner.appendChild(startLbl);
+
+    const tempInput = document.createElement("input");
+    tempInput.className = "schedule-block-temp-input";
+    tempInput.type  = "number";
+    tempInput.min   = "5";
+    tempInput.max   = "35";
+    tempInput.step  = "0.5";
+    tempInput.value = String(entry.temperature);
+    tempInput.inputMode = "decimal";
+    tempInput.addEventListener("input", () => {
+      const v = parseFloat(tempInput.value);
+      if (Number.isFinite(v)) entry.temperature = v;
+    });
+    tempInput.addEventListener("change", () => {
+      const v = parseFloat(tempInput.value);
+      entry.temperature = Number.isFinite(v) ? Math.min(35, Math.max(5, v)) : 20;
+      tempInput.value = String(entry.temperature);
+    });
+    tempInput.addEventListener("click",      (e) => e.stopPropagation());
+    tempInput.addEventListener("mousedown",  (e) => e.stopPropagation());
+    tempInput.addEventListener("touchstart", (e) => e.stopPropagation());
+    inner.appendChild(tempInput);
+
+    const unit = document.createElement("div");
+    unit.className = "schedule-block-unit";
+    unit.textContent = "°C";
+    inner.appendChild(unit);
+
+    block.appendChild(inner);
+
+    const del = document.createElement("button");
+    del.className  = "schedule-block-del";
+    del.type       = "button";
+    del.textContent = "×";
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const arr = calSortDay(day);
+      const idx = arr.findIndex(en => en.start === entry.start);
+      if (idx >= 0) {
+        // Block durch Lücke ersetzen, damit der Vorgänger nicht in die Fläche hineinwächst
+        arr[idx] = { start: entry.start, temperature: null };
+        if (calIsGap(arr[idx + 1])) arr.splice(idx + 1, 1);
+        calCleanGaps(day);
+      }
+      renderCalBlocks(day, col);
+    });
+    block.appendChild(del);
+
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className = "schedule-block-resize";
+    resizeHandle.addEventListener("mousedown",  e => e.stopPropagation());
+    resizeHandle.addEventListener("touchstart", e => e.stopPropagation(), { passive: true });
+    block.appendChild(resizeHandle);
+
+    calBlockMoveDrag(block, day, entry, col);
+    calBlockResizeDrag(resizeHandle, day, entry, col);
+    col.appendChild(block);
   });
 }
 
-function renderScheduleEditor() {
-  // Kein flushScheduleEditorValues() hier: Beim Öffnen eines anderen Raums
-  // bzw. Wechsel des Tages stehen noch die alten Eingabezeilen im DOM und
-  // würden sonst in den neuen Raum/Tag geschrieben werden.
-  renderScheduleDayButtons();
+// ── Drag: create block ──────────────────────────────
+function calCreateDragStart(e, col, day) {
+  if (!draftWeeklySchedule) return;
+  const rect     = col.getBoundingClientRect();
+  const startMin = calSnapMin(calClampMin(Math.round(calPxToMin(e.clientY - rect.top))));
 
-  if (!draftWeeklySchedule || !scheduleRoomId) {
-    els.scheduleEntries.innerHTML = "";
-    return;
-  }
+  const ghost = document.createElement("div");
+  ghost.className   = "schedule-ghost";
+  ghost.style.top   = `${calMinToPx(startMin)}px`;
+  ghost.style.height = `${calMinToPx(CAL_SNAP_MIN)}px`;
+  col.appendChild(ghost);
 
-  const entries = draftWeeklySchedule[currentScheduleDay] || [];
-  els.scheduleEntries.innerHTML = "";
+  let currentEndMin = startMin + CAL_SNAP_MIN;
 
-  if (!entries.length) {
-    const empty = document.createElement("div");
-    empty.className = "schedule-empty";
-    empty.textContent = t("schedule_empty");
-    els.scheduleEntries.appendChild(empty);
-    return;
-  }
+  const onMove = (ev) => {
+    const cy   = ev.touches ? ev.touches[0].clientY : ev.clientY;
+    const rect2 = col.getBoundingClientRect();
+    currentEndMin = calClampEndMin(calPxToMin(cy - rect2.top));
+    const top  = calMinToPx(Math.min(startMin, currentEndMin));
+    const hpx  = calMinToPx(Math.max(Math.abs(currentEndMin - startMin), CAL_SNAP_MIN));
+    ghost.style.top    = `${top}px`;
+    ghost.style.height = `${hpx}px`;
+    if (ev.cancelable) ev.preventDefault();
+  };
 
-  entries.forEach((entry, index) => {
-    const row = document.createElement("div");
-    row.className = "schedule-entry";
+  const onUp = (ev) => {
+    document.removeEventListener("mousemove", onMove);
+    document.removeEventListener("mouseup",   onUp);
+    document.removeEventListener("touchmove", onMove);
+    document.removeEventListener("touchend",  onUp);
+    ghost.remove();
 
-    row.innerHTML = `
-      <input class="schedule-time" type="time" value="${escapeHtml(
-        entry.start
-      )}" />
-      <input class="schedule-temp" type="number" min="5" max="30" step="0.5" value="${escapeHtml(
-        entry.temperature
-      )}" />
-      <button type="button" class="danger schedule-delete">✕</button>
-    `;
+    const cy  = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
+    const r2   = col.getBoundingClientRect();
+    const endM = calClampEndMin(calPxToMin(cy - r2.top));
 
-    const timeInput = row.querySelector(".schedule-time");
-    const tempInput = row.querySelector(".schedule-temp");
-    const deleteBtn = row.querySelector(".schedule-delete");
+    const topMin = calClampMin(Math.min(startMin, endM));
+    const botMin = Math.max(topMin + CAL_SNAP_MIN, Math.max(startMin, endM));
 
-    const commitInputs = (restoreInvalid = false) => {
-      commitScheduleEntryInputs(entry, row, restoreInvalid);
+    calInsertBlock(day, topMin, botMin, 21.0);
+    renderCalBlocks(day, col);
+  };
+
+  document.addEventListener("mousemove", onMove);
+  document.addEventListener("mouseup",   onUp);
+  document.addEventListener("touchmove", onMove, { passive: false });
+  document.addEventListener("touchend",  onUp);
+}
+
+// ── Drag: resize block (bottom handle) ─────────────
+function calBlockResizeDrag(handle, day, entry, col) {
+  const onDown = (e) => {
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+
+    const onMove = (ev) => {
+      if (ev.cancelable) ev.preventDefault();
+      const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const r  = col.getBoundingClientRect();
+      const newEndMin  = calClampEndMin(calPxToMin(cy - r.top));
+      const startMin   = calHHMMToMin(entry.start);
+      const finalEndPx = calMinToPx(Math.max(startMin + CAL_SNAP_MIN, newEndMin) - startMin);
+      const block = handle.closest(".schedule-block");
+      if (block) block.style.height = `${Math.max(22, finalEndPx)}px`;
     };
 
-    // A time input may emit `change` while only one segment is being edited.
-    // Keep the existing DOM node and defer sorting until a structural action
-    // (day change, add/delete or save) so typing never loses focus or selection.
-    timeInput.addEventListener("change", () => commitInputs());
-    timeInput.addEventListener("blur", () => commitInputs(true));
-    tempInput.addEventListener("change", () => commitInputs());
-    tempInput.addEventListener("blur", () => commitInputs(true));
+    const onUp = (ev) => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend",  onUp);
 
-    deleteBtn.addEventListener("click", () => {
-      flushScheduleEditorValues();
-      entries.splice(index, 1);
-      sortScheduleEntries(entries);
-      renderScheduleEditor();
-    });
+      const cy = ev.changedTouches ? ev.changedTouches[0].clientY : ev.clientY;
+      const r  = col.getBoundingClientRect();
+      const newEndMin = calClampEndMin(calPxToMin(cy - r.top));
+      const startMin  = calHHMMToMin(entry.start);
+      const minEnd    = startMin + CAL_SNAP_MIN;
+      const finalEnd  = Math.max(minEnd, newEndMin);
 
-    els.scheduleEntries.appendChild(row);
-  });
+      const arr = calSortDay(day);
+      const idx = arr.findIndex(en => en.start === entry.start);
+      if (idx < 0) return;
+
+      const next = arr[idx + 1];
+      if (next) {
+        const after = arr[idx + 2];
+        const limit = after ? calHHMMToMin(after.start) : 24 * 60;
+        if (calIsGap(next)) {
+          // Lücken-Marker verschieben; erreicht er den nächsten Block / das Tagesende, entfällt er
+          if (finalEnd >= limit) arr.splice(idx + 1, 1);
+          else next.start = calMinToHHMM(finalEnd);
+        } else {
+          // direkt angrenzender Block: gemeinsame Grenze verschieben
+          next.start = calMinToHHMM(Math.min(limit - CAL_SNAP_MIN, finalEnd));
+        }
+      } else if (finalEnd < 24 * 60) {
+        // Block lief bis Tagesende: ab hier gilt wieder kein Plan
+        arr.push({ start: calMinToHHMM(finalEnd), temperature: null });
+      }
+      calCleanGaps(day);
+      renderCalBlocks(day, col);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend",  onUp);
+  };
+
+  handle.addEventListener("mousedown",  onDown);
+  handle.addEventListener("touchstart", onDown, { passive: false });
 }
 
-function addScheduleEntry() {
-  if (!draftWeeklySchedule || !scheduleRoomId) {
-    return;
-  }
+// ── Drag: move block ────────────────────────────────
+function calBlockMoveDrag(block, fromDay, entry, fromCol) {
+  const onDown = (e) => {
+    if (e.target.closest(".schedule-block-del") || e.target.closest(".schedule-block-resize") || e.target.tagName === "INPUT") return;
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
 
-  flushScheduleEditorValues();
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const rect    = block.getBoundingClientRect();
+    const offsetY = clientY - rect.top;
 
-  if (!Array.isArray(draftWeeklySchedule[currentScheduleDay])) {
-    draftWeeklySchedule[currentScheduleDay] = [];
-  }
+    // floating clone
+    const clone       = block.cloneNode(true);
+    clone.style.position    = "fixed";
+    clone.style.width       = `${rect.width}px`;
+    clone.style.left        = `${rect.left}px`;
+    clone.style.top         = `${rect.top}px`;
+    clone.style.zIndex      = "9999";
+    clone.style.opacity     = "0.85";
+    clone.style.cursor      = "grabbing";
+    clone.style.pointerEvents = "none";
+    clone.style.transition  = "none";
+    document.body.appendChild(clone);
+    block.style.opacity = "0.3";
 
-  draftWeeklySchedule[currentScheduleDay].push({
-    start: "06:00",
-    temperature: 21.0,
-  });
+    let currentDay = fromDay;
+    let currentMin = calHHMMToMin(entry.start);
 
-  sortScheduleEntries(draftWeeklySchedule[currentScheduleDay]);
-  renderScheduleEditor();
+    const onMove = (ev) => {
+      const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+      const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+      clone.style.top  = `${cy - offsetY}px`;
+      clone.style.left = `${cx - rect.width / 2}px`;
+
+      const target    = document.elementFromPoint(cx, cy);
+      const targetCol = target?.closest(".schedule-cal-day-col");
+      if (targetCol?.dataset.day) {
+        currentDay = targetCol.dataset.day;
+        const cr   = targetCol.getBoundingClientRect();
+        currentMin = calSnapMin(calClampMin(Math.round(calPxToMin(cy - offsetY - cr.top))));
+      }
+      if (ev.cancelable) ev.preventDefault();
+    };
+
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup",   onUp);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend",  onUp);
+      clone.remove();
+      block.style.opacity = "";
+
+      // Block aus dem alten Tag nehmen (Fläche wird zur Lücke), Länge merken
+      const oldArr = calSortDay(fromDay);
+      const idx    = oldArr.findIndex(en => en.start === entry.start);
+      if (idx < 0) return;
+      const oldStartMin = calHHMMToMin(entry.start);
+      const oldNext     = oldArr[idx + 1];
+      const duration    = (oldNext ? calHHMMToMin(oldNext.start) : 24 * 60) - oldStartMin;
+      oldArr[idx] = { start: entry.start, temperature: null };
+      if (calIsGap(oldNext)) oldArr.splice(idx + 1, 1);
+      calCleanGaps(fromDay);
+
+      // Im Ziel einfügen mit unveränderter Länge
+      const newEndMin = Math.min(24 * 60, currentMin + duration);
+      calInsertBlock(currentDay, currentMin, newEndMin, entry.temperature);
+
+      // re-render affected columns
+      const affectedDays = currentDay === fromDay ? [fromDay] : [fromDay, currentDay];
+      for (const d of affectedDays) {
+        const c = els.scheduleCalendar?.querySelector(`.schedule-cal-day-col[data-day="${d}"]`);
+        if (c) renderCalBlocks(d, c);
+      }
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup",   onUp);
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend",  onUp);
+  };
+
+  block.addEventListener("mousedown",  onDown);
+  block.addEventListener("touchstart", onDown, { passive: false });
 }
 
 function saveScheduleDraft() {
@@ -3015,8 +4008,6 @@ function saveScheduleDraft() {
     closeScheduleModal();
     return;
   }
-
-  flushScheduleEditorValues();
 
   const room = state.config.rooms?.[scheduleRoomId];
   if (!room) {
@@ -3028,25 +4019,16 @@ function saveScheduleDraft() {
   closeScheduleModal();
 }
 
-function openScheduleCopyModal(mode = "rooms") {
+function openScheduleCopyModal() {
   if (!scheduleRoomId || !draftWeeklySchedule) {
     return;
   }
 
-  scheduleCopyMode = mode === "days" ? "days" : "rooms";
-
   if (els.scheduleCopyTitle) {
-    els.scheduleCopyTitle.textContent =
-      scheduleCopyMode === "days"
-        ? `${t("schedule_copy_days_title")} · ${getDayLabel(currentScheduleDay)}`
-        : t("schedule_copy_title");
+    els.scheduleCopyTitle.textContent = t("schedule_copy_title");
   }
 
-  if (scheduleCopyMode === "days") {
-    renderScheduleCopyDayList();
-  } else {
-    renderScheduleCopyRoomList();
-  }
+  renderScheduleCopyRoomList();
   els.scheduleCopyModal.classList.remove("hidden");
 }
 
@@ -3086,61 +4068,6 @@ function renderScheduleCopyRoomList() {
   }
 }
 
-function renderScheduleCopyDayList() {
-  if (!els.scheduleCopyRoomsList) {
-    return;
-  }
-
-  els.scheduleCopyRoomsList.innerHTML = "";
-
-  for (const day of WEEK_DAYS) {
-    if (day === currentScheduleDay) {
-      continue;
-    }
-
-    const row = document.createElement("label");
-    row.className = "schedule-copy-room";
-
-    row.innerHTML = `
-      <input type="checkbox" value="${escapeHtml(day)}" />
-      <span class="schedule-copy-room-label">${escapeHtml(getDayLabel(day))}</span>
-    `;
-
-    els.scheduleCopyRoomsList.appendChild(row);
-  }
-}
-
-function applyScheduleToSelectedDays() {
-  if (!scheduleRoomId || !draftWeeklySchedule) {
-    closeScheduleCopyModal();
-    return;
-  }
-
-  const selectedDays = [
-    ...els.scheduleCopyRoomsList.querySelectorAll('input[type="checkbox"]:checked'),
-  ]
-    .map((checkbox) => checkbox.value)
-    .filter((day) => day !== currentScheduleDay && WEEK_DAYS.includes(day));
-
-  if (!selectedDays.length) {
-    closeScheduleCopyModal();
-    return;
-  }
-
-  flushScheduleEditorValues();
-
-  const sourceEntries = Array.isArray(draftWeeklySchedule[currentScheduleDay])
-    ? draftWeeklySchedule[currentScheduleDay]
-    : [];
-  sortScheduleEntries(sourceEntries);
-
-  for (const day of selectedDays) {
-    draftWeeklySchedule[day] = structuredClone(sourceEntries);
-  }
-
-  closeScheduleCopyModal();
-}
-
 function applyScheduleToSelectedRooms() {
   if (!scheduleRoomId || !draftWeeklySchedule) {
     closeScheduleCopyModal();
@@ -3156,7 +4083,6 @@ function applyScheduleToSelectedRooms() {
     return;
   }
 
-  flushScheduleEditorValues();
   const copiedSchedule = normalizeWeeklySchedule(draftWeeklySchedule);
 
   for (const roomId of selectedIds) {
@@ -3171,86 +4097,30 @@ function applyScheduleToSelectedRooms() {
 }
 
 function bindScheduleEvents() {
-  if (els.scheduleClose) {
-    els.scheduleClose.addEventListener("click", closeScheduleModal);
-  }
-
-  if (els.scheduleCancel) {
-    els.scheduleCancel.addEventListener("click", closeScheduleModal);
-  }
-
-  if (els.scheduleAdd) {
-    els.scheduleAdd.addEventListener("click", addScheduleEntry);
-  }
-
-  if (els.scheduleSave) {
-    els.scheduleSave.addEventListener("click", saveScheduleDraft);
-  }
-
-  if (els.scheduleCopyRoomsBtn) {
-    els.scheduleCopyRoomsBtn.addEventListener("click", () =>
-      openScheduleCopyModal("rooms")
-    );
-  }
-
-  if (els.scheduleCopyDaysBtn) {
-    els.scheduleCopyDaysBtn.addEventListener("click", () =>
-      openScheduleCopyModal("days")
-    );
-  }
-
-  if (els.scheduleCopyClose) {
-    els.scheduleCopyClose.addEventListener("click", closeScheduleCopyModal);
-  }
-
-  if (els.scheduleCopyCancel) {
-    els.scheduleCopyCancel.addEventListener("click", closeScheduleCopyModal);
-  }
-
-  if (els.scheduleCopyApply) {
-    els.scheduleCopyApply.addEventListener("click", () => {
-      if (scheduleCopyMode === "days") {
-        applyScheduleToSelectedDays();
-      } else {
-        applyScheduleToSelectedRooms();
-      }
-    });
-  }
-
-  els.scheduleDayButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      flushScheduleEditorValues();
-      const entries = draftWeeklySchedule?.[currentScheduleDay];
-      if (Array.isArray(entries)) {
-        sortScheduleEntries(entries);
-      }
-      currentScheduleDay = btn.dataset.day;
-      renderScheduleEditor();
-    });
-  });
+  if (els.scheduleClose)        els.scheduleClose.addEventListener("click", closeScheduleModal);
+  if (els.scheduleCancel)       els.scheduleCancel.addEventListener("click", closeScheduleModal);
+  if (els.scheduleSave)         els.scheduleSave.addEventListener("click", saveScheduleDraft);
+  if (els.scheduleCopyRoomsBtn) els.scheduleCopyRoomsBtn.addEventListener("click", openScheduleCopyModal);
+  if (els.scheduleCopyClose)    els.scheduleCopyClose.addEventListener("click", closeScheduleCopyModal);
+  if (els.scheduleCopyCancel)   els.scheduleCopyCancel.addEventListener("click", closeScheduleCopyModal);
+  if (els.scheduleCopyApply)    els.scheduleCopyApply.addEventListener("click", applyScheduleToSelectedRooms);
 
   if (els.scheduleModal) {
-    els.scheduleModal.addEventListener("click", (event) => {
-      if (event.target === els.scheduleModal) {
-        closeScheduleModal();
-      }
+    els.scheduleModal.addEventListener("click", (e) => {
+      if (e.target === els.scheduleModal) closeScheduleModal();
     });
   }
 
   if (els.scheduleCopyModal) {
-    els.scheduleCopyModal.addEventListener("click", (event) => {
-      if (event.target === els.scheduleCopyModal) {
-        closeScheduleCopyModal();
-      }
+    els.scheduleCopyModal.addEventListener("click", (e) => {
+      if (e.target === els.scheduleCopyModal) closeScheduleCopyModal();
     });
   }
 }
 
 function bindEvents() {
-  els.saveBtn.addEventListener("click", saveConfig);
   els.reloadRoomsBtn.addEventListener("click", reloadRooms);
   els.reloadConfigBtn.addEventListener("click", reloadConfig);
-  els.addRoomBtn.addEventListener("click", addRoom);
   els.applyTimesToRoomsBtn.addEventListener(
     "click",
     applyGlobalTimesToAllRooms
@@ -3284,6 +4154,7 @@ function bindEvents() {
   });
 
   bindScheduleEvents();
+  bindEditModalEvents();
 }
 
 function enableEditTracking() {
@@ -3339,6 +4210,14 @@ function updateStateInMemory(entity) {
     state.allStates.filter((item) => item.entity_id?.startsWith("switch."))
   );
 
+  state.switchActuators = sortByEntityId(
+    state.allStates.filter(
+      (item) =>
+        item.entity_id?.startsWith("switch.") ||
+        item.entity_id?.startsWith("input_boolean.")
+    )
+  );
+
   state.binarySensors = sortByEntityId(
     state.allStates.filter((item) => item.entity_id?.startsWith("binary_sensor."))
   );
@@ -3374,6 +4253,9 @@ async function setupLiveUpdates() {
         if (incoming.room_states) {
           state.config.room_states = incoming.room_states;
         }
+        if (entity.attributes?.room_status) {
+          state.roomStatus = entity.attributes.room_status;
+        }
 
         // Config still update im Hintergrund (damit collectFormState() frische
         // Metadaten wie learned_overshoot, weekly_schedule hat), aber KEIN
@@ -3382,7 +4264,7 @@ async function setupLiveUpdates() {
         // Fensterkontakt-Picker) überschreiben.
         // Vollständiger Re-Render nur bei: init→refreshAll(), saveConfig()-Erfolg,
         // explizitem Reload-Button.
-        if (!isSaving && !isEditing) {
+        if (!isSaving && !isEditing && !editSession) {
           state.config = incoming;
           if (pendingCircuits !== null) {
             state.config.circuits = pendingCircuits;
@@ -3405,8 +4287,72 @@ async function setupLiveUpdates() {
   }
 }
 
+// ─── −/+ stepper for temperature inputs ──────────────────────────────────────
+const STEPPER_SELECTOR =
+  'input[type="number"][step="0.5"]:not(.schedule-block-temp-input)';
+
+function enhanceNumberStepper(input) {
+  if (input.closest(".num-stepper")) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "num-stepper";
+  if (input.classList.contains("toggle-temp")) {
+    wrapper.classList.add("num-stepper-compact");
+  }
+
+  const makeButton = (label, direction) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "num-stepper-btn";
+    btn.textContent = label;
+    btn.tabIndex = -1;
+    btn.addEventListener("click", () => {
+      if (input.disabled || input.readOnly) return;
+      const step = Number(input.step) || 0.5;
+      const min = input.min !== "" ? Number(input.min) : -Infinity;
+      const max = input.max !== "" ? Number(input.max) : Infinity;
+      let value = Number(input.value);
+      if (input.value === "" || !Number.isFinite(value)) {
+        value = Number.isFinite(min) ? min : 0;
+      } else {
+        // snap to the step grid first, then move one step
+        value = Math.round(value / step) * step + direction * step;
+      }
+      value = Math.min(max, Math.max(min, value));
+      input.value = String(Number(value.toFixed(2)));
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    return btn;
+  };
+
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.append(makeButton("−", -1), input, makeButton("+", 1));
+}
+
+function enhanceNumberSteppers(root) {
+  if (root.matches?.(STEPPER_SELECTOR)) {
+    enhanceNumberStepper(root);
+  }
+  root.querySelectorAll?.(STEPPER_SELECTOR).forEach(enhanceNumberStepper);
+}
+
+function observeNumberSteppers() {
+  enhanceNumberSteppers(document.body);
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      for (const node of mutation.addedNodes) {
+        if (node.nodeType === Node.ELEMENT_NODE && !node.classList.contains("num-stepper")) {
+          enhanceNumberSteppers(node);
+        }
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+}
+
 async function init() {
   initEls();
+  observeNumberSteppers();
   applyTranslations();
   bindEvents();
   enableEditTracking();

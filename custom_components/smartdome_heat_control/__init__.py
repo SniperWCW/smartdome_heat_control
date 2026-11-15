@@ -43,12 +43,14 @@ from .const import (
     CONF_AWAY_ENABLED,
     CONF_CIRCUIT_CONTROL_TYPE,
     CONF_CIRCUIT_ENABLED,
+    CONF_CIRCUIT_IDLE_TEMPERATURE,
     CONF_CIRCUIT_LABEL,
     CONF_CIRCUIT_MAIN_SENSOR,
     CONF_CIRCUIT_MAIN_SWITCH,
     CONF_CIRCUIT_MAIN_THERMOSTAT,
     CONF_CIRCUITS,
     CONF_MAIN_CONTROL_TYPE,
+    CONF_MAIN_IDLE_TEMPERATURE,
     CONF_MAIN_SWITCH,
     CONTROL_TYPE_THERMOSTAT,
     DEFAULT_MAIN_CONTROL_TYPE,
@@ -61,9 +63,18 @@ from .const import (
     CONF_ROOM_THERMOSTAT_OFFSET,
     CONF_ROOM_WINDOW_SENSORS,
     CONF_ROOM_AWAY_ENABLED,
+    CONF_ROOM_TARGET_RECONCILE_ENABLED,
     CONF_ROOM_EXTRA_THERMOSTATS,
     DEFAULT_ROOM_AWAY_ENABLED,
+    DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
     DEFAULT_ROOM_EXTRA_THERMOSTATS,
+    CONF_ROOM_HYSTERESIS,
+    CONF_ROOM_SWITCH_ACTUATORS,
+    CONF_ROOM_SWITCH_MIN_OFF,
+    CONF_ROOM_SWITCH_MIN_ON,
+    DEFAULT_ROOM_SWITCH_MIN_OFF,
+    DEFAULT_ROOM_SWITCH_MIN_ON,
+    SWITCH_ACTUATOR_DOMAINS,
     DEFAULT_ROOM_CONTROL_PROFILE,
     DEFAULT_ROOM_THERMOSTAT_OFFSET,
     CONF_ROOM_AWAY_TEMPERATURE,
@@ -115,11 +126,13 @@ from .const import (
     CONF_ROOM_CLIMATE_FAN_MODE,
     CONF_ROOM_CLIMATE_PRESET,
     CONF_ROOM_CLIMATE_HVAC_MODE,
+    CONF_ROOM_CLIMATE_HEAT_BOOST,
     DEFAULT_ROOM_COOL_TARGET_DAY,
     DEFAULT_ROOM_COOL_TARGET_NIGHT,
     DEFAULT_ROOM_CLIMATE_FAN_MODE,
     DEFAULT_ROOM_CLIMATE_PRESET,
     DEFAULT_ROOM_CLIMATE_HVAC_MODE,
+    DEFAULT_ROOM_CLIMATE_HEAT_BOOST,
     DOMAIN,
     PLATFORMS,
     SERVICE_ADD_ROOM,
@@ -210,7 +223,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.debug("[Smartdome Diagnose] PERSIST_LEARNED: Keine Änderungen, Skip.")
             return
 
-        _LOGGER.debug(
+        _LOGGER.warning(
             "[Smartdome Diagnose] PERSIST_LEARNED: Merge lernbarer Werte in Config Entry. "
             "Geänderte Räume: %s",
             [rid for rid in learned_rooms if rid in current_rooms],
@@ -221,7 +234,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     controller.set_persist_callback(_persist_learned)
 
     def _on_room_states_updated(room_states: dict[str, str]) -> None:
-        _push_state(hass, domain_data["config"], room_states=room_states)
+        _push_state(
+            hass,
+            domain_data["config"],
+            room_states=room_states,
+            room_status=controller.get_panel_room_status(),
+        )
 
     controller.set_state_callback(_on_room_states_updated)
 
@@ -323,6 +341,33 @@ def _normalize_extra_thermostats(room: dict[str, Any]) -> list[str]:
     return list(DEFAULT_ROOM_EXTRA_THERMOSTATS)
 
 
+def _normalize_switch_actuators(room: dict[str, Any]) -> list[str]:
+    """Schalter-Aktoren normalisieren (nur switch.* / input_boolean.*)."""
+    actuators = room.get(CONF_ROOM_SWITCH_ACTUATORS)
+    if not isinstance(actuators, list):
+        return []
+    return [
+        a for a in actuators
+        if isinstance(a, str) and a.split(".", 1)[0] in SWITCH_ACTUATOR_DOMAINS
+    ]
+
+
+def _normalize_optional_float(value: Any) -> float | None:
+    """Leere/ungültige Werte → None (z.B. „globale Toleranz verwenden“)."""
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    return result if result > 0 else None
+
+
+def _normalize_minutes(value: Any, default: int) -> float:
+    try:
+        return max(0.0, float(value))
+    except (TypeError, ValueError):
+        return float(default)
+
+
 def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
     """Räume normalisieren."""
     if not isinstance(rooms, dict):
@@ -339,6 +384,16 @@ def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
             "area_id": room.get("area_id", ""),
             "thermostat": room.get("thermostat", ""),
             CONF_ROOM_EXTRA_THERMOSTATS: _normalize_extra_thermostats(room),
+            CONF_ROOM_SWITCH_ACTUATORS: _normalize_switch_actuators(room),
+            CONF_ROOM_HYSTERESIS: _normalize_optional_float(
+                room.get(CONF_ROOM_HYSTERESIS)
+            ),
+            CONF_ROOM_SWITCH_MIN_ON: _normalize_minutes(
+                room.get(CONF_ROOM_SWITCH_MIN_ON), DEFAULT_ROOM_SWITCH_MIN_ON
+            ),
+            CONF_ROOM_SWITCH_MIN_OFF: _normalize_minutes(
+                room.get(CONF_ROOM_SWITCH_MIN_OFF), DEFAULT_ROOM_SWITCH_MIN_OFF
+            ),
             "sensor": room.get("sensor", ""),
             # Altes Einzelfeld wird in window_sensors migriert und geleert.
             "window_sensor": "",
@@ -351,6 +406,12 @@ def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
             ),
             CONF_ROOM_AWAY_ENABLED: bool(
                 room.get(CONF_ROOM_AWAY_ENABLED, DEFAULT_ROOM_AWAY_ENABLED)
+            ),
+            CONF_ROOM_TARGET_RECONCILE_ENABLED: bool(
+                room.get(
+                    CONF_ROOM_TARGET_RECONCILE_ENABLED,
+                    DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
+                )
             ),
             "day_start": room.get("day_start", ""),
             "night_start": room.get("night_start", ""),
@@ -402,9 +463,20 @@ def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
             CONF_ROOM_CLIMATE_FAN_MODE: str(room.get(CONF_ROOM_CLIMATE_FAN_MODE, DEFAULT_ROOM_CLIMATE_FAN_MODE)),
             CONF_ROOM_CLIMATE_PRESET: str(room.get(CONF_ROOM_CLIMATE_PRESET, DEFAULT_ROOM_CLIMATE_PRESET)),
             CONF_ROOM_CLIMATE_HVAC_MODE: str(room.get(CONF_ROOM_CLIMATE_HVAC_MODE, DEFAULT_ROOM_CLIMATE_HVAC_MODE)),
+            CONF_ROOM_CLIMATE_HEAT_BOOST: bool(room.get(CONF_ROOM_CLIMATE_HEAT_BOOST, DEFAULT_ROOM_CLIMATE_HEAT_BOOST)),
         }
 
     return normalized
+
+
+def _optional_temperature(value: Any) -> float | None:
+    """Optionale Temperatur: leer/ungültig → None (= automatisch)."""
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _non_negative_float(value: Any) -> float:
@@ -430,6 +502,9 @@ def _normalize_circuits(circuits: Any) -> dict[str, dict[str, Any]]:
             CONF_CIRCUIT_MAIN_THERMOSTAT: circuit.get(CONF_CIRCUIT_MAIN_THERMOSTAT, ""),
             CONF_CIRCUIT_MAIN_SWITCH: circuit.get(CONF_CIRCUIT_MAIN_SWITCH, ""),
             CONF_CIRCUIT_MAIN_SENSOR: circuit.get(CONF_CIRCUIT_MAIN_SENSOR, ""),
+            CONF_CIRCUIT_IDLE_TEMPERATURE: _optional_temperature(
+                circuit.get(CONF_CIRCUIT_IDLE_TEMPERATURE)
+            ),
             CONF_CIRCUIT_ENABLED: bool(circuit.get(CONF_CIRCUIT_ENABLED, True)),
         }
     return normalized
@@ -438,9 +513,15 @@ def _normalize_circuits(circuits: Any) -> dict[str, dict[str, Any]]:
 def _normalize_config(cfg: dict[str, Any]) -> dict[str, Any]:
     """Gesamte Config normalisieren."""
     normalized = dict(cfg)
+    # Live-Status gehört nicht in die gespeicherte Konfiguration.
+    normalized.pop("room_states", None)
+    normalized.pop("room_status", None)
     normalized.setdefault(DATA_ENABLED, DEFAULT_ENABLED)
     normalized.setdefault(CONF_MAIN_CONTROL_TYPE, DEFAULT_MAIN_CONTROL_TYPE)
     normalized.setdefault(CONF_MAIN_SWITCH, "")
+    normalized[CONF_MAIN_IDLE_TEMPERATURE] = _optional_temperature(
+        normalized.get(CONF_MAIN_IDLE_TEMPERATURE)
+    )
     normalized.setdefault(CONF_VACATION_ENABLED, DEFAULT_VACATION_ENABLED)
     normalized.setdefault(CONF_VACATION_TEMPERATURE, DEFAULT_VACATION_TEMPERATURE)
     normalized.setdefault(CONF_AWAY_ENABLED, DEFAULT_AWAY_ENABLED)
@@ -499,7 +580,7 @@ def _async_register_ws_save_config(hass: HomeAssistant) -> None:
         new_cfg = _normalize_config(dict(msg["config"]))
 
         rooms = new_cfg.get(CONF_ROOMS, {})
-        _LOGGER.debug(
+        _LOGGER.warning(
             "[Smartdome Diagnose] WS_SAVE: Konfiguration wird gespeichert. "
             "Räume: %s | heating_mode: %s | enabled: %s",
             {rid: r.get("label", rid) for rid, r in rooms.items()},
@@ -559,7 +640,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             _LOGGER.warning("Kein Config Entry für update_config gefunden")
             return
 
-        _LOGGER.debug("[Smartdome Diagnose] SERVICE_UPDATE_CONFIG aufgerufen. Patch-Keys: %s", list(call.data.get("config", {}).keys()))
+        _LOGGER.warning("[Smartdome Diagnose] SERVICE_UPDATE_CONFIG aufgerufen. Patch-Keys: %s", list(call.data.get("config", {}).keys()))
 
         data = hass.data[DOMAIN][target_entry.entry_id]
         current_cfg = dict(data["config"])
@@ -756,11 +837,14 @@ def _push_state(
     hass: HomeAssistant,
     cfg: dict[str, Any],
     room_states: dict[str, str] | None = None,
+    room_status: dict[str, dict[str, Any]] | None = None,
 ) -> None:
     """Globalen UI-State aktualisieren."""
     state_cfg = _normalize_config(cfg)
     if room_states is not None:
         state_cfg["room_states"] = room_states
+    if room_status is not None:
+        state_cfg["room_status"] = room_status
 
     hass.states.async_set(
         f"{DOMAIN}.config",

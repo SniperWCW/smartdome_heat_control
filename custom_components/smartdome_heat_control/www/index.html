@@ -88,17 +88,6 @@
       font-weight: 700;
     }
 
-    .room-heating {
-      font-size: 16px;
-      line-height: 1;
-    }
-
-    .room-window-open {
-      font-size: 16px;
-      line-height: 1;
-      filter: drop-shadow(0 0 4px rgba(77, 163, 255, 0.2));
-    }
-
     .settings-group {
       margin-bottom: 20px;
     }
@@ -133,6 +122,55 @@
       width: 70px;
       padding: 8px 10px;
       font-size: 13px;
+    }
+
+    /* −/+ stepper for temperature inputs */
+    .num-stepper {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .num-stepper input {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      -moz-appearance: textfield;
+    }
+
+    .num-stepper input::-webkit-outer-spin-button,
+    .num-stepper input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .num-stepper-btn {
+      flex-shrink: 0;
+      min-width: 42px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      background: #0f151d;
+      box-shadow: none;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .num-stepper-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .num-stepper-compact {
+      width: auto;
+      gap: 4px;
+    }
+
+    .num-stepper-compact .num-stepper-btn {
+      min-width: 30px;
+      padding: 0 6px;
+      font-size: 15px;
+      border-radius: 10px;
     }
 
     /* Mode picker */
@@ -400,19 +438,6 @@
       color: #ffc1c1;
     }
 
-    .layout {
-      display: grid;
-      grid-template-columns: 430px minmax(0, 1fr);
-      gap: 20px;
-      align-items: start;
-    }
-
-    .sticky-col {
-      position: sticky;
-      top: 16px;
-      align-self: start;
-    }
-
     .card {
       background: rgba(20, 26, 34, 0.94);
       border: 1px solid var(--line);
@@ -511,62 +536,31 @@
       color: var(--muted);
     }
 
-    .rooms-card {
-      min-height: 70vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .rooms-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-    }
-
-    .rooms-scroll {
-      overflow-y: auto;
-      max-height: calc(100vh - 170px);
-      padding-right: 6px;
-    }
-
     .rooms {
       display: grid;
       gap: 14px;
     }
 
     .room {
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 16px;
-      background: #10161e;
+      display: none;
     }
 
-    .room.drag-over {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 2px var(--accent);
+    .room.active {
+      display: block;
     }
 
     .room-top {
       display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
+      flex-direction: column;
+      gap: 10px;
       margin-bottom: 14px;
+    }
+
+    .room-top-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       flex-wrap: wrap;
-    }
-
-    .room-title {
-      font-weight: 700;
-      font-size: 16px;
-    }
-
-    .room-subtitle {
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 3px;
     }
 
     .room-grid {
@@ -774,56 +768,221 @@
       padding: 10px 14px;
     }
 
-    .schedule-days {
+    /* ── Weekly Schedule Calendar ──────────────────── */
+    .schedule-calendar-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    .schedule-calendar {
+      display: grid;
+      grid-template-columns: 44px repeat(7, minmax(0, 1fr));
+      grid-template-rows: 36px auto;
+      min-width: 420px;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .schedule-cal-corner {
+      grid-column: 1;
+      grid-row: 1;
+      position: sticky;
+      top: 0;
+      z-index: 12;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .schedule-cal-day-hdr {
+      grid-row: 1;
+      position: sticky;
+      top: 0;
+      z-index: 11;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      border-left: 1px solid var(--line);
       display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-
-    .schedule-days button {
-      margin: 0;
-      border: 1px solid var(--line);
-      background: #0f151d;
-      box-shadow: none;
-    }
-
-    .schedule-days button.active {
-      background: var(--accent);
-      color: #08111a;
-      border-color: transparent;
-    }
-
-    .schedule-entries {
-      display: grid;
-      gap: 10px;
-      margin-bottom: 18px;
-    }
-
-    .schedule-entry {
-      display: grid;
-      grid-template-columns: 1fr 1fr auto;
-      gap: 10px;
       align-items: center;
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: #0f151d;
-    }
-
-    .schedule-entry button {
-      min-width: 44px;
-      padding: 10px 12px;
-    }
-
-    .schedule-empty {
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
       color: var(--muted);
-      font-size: 13px;
-      border: 1px dashed var(--line);
-      border-radius: 14px;
-      padding: 14px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .schedule-cal-day-hdr.today { color: var(--accent); }
+
+    .schedule-cal-time-col {
+      grid-column: 1;
+      grid-row: 2;
+      position: relative;
+    }
+
+    .schedule-cal-day-col {
+      grid-row: 2;
+      position: relative;
+      border-left: 1px solid var(--line);
+      cursor: crosshair;
+    }
+
+    .schedule-cal-hour-line {
+      position: absolute;
+      left: 0; right: 0;
+      border-top: 1px solid var(--line);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .schedule-cal-half-line {
+      position: absolute;
+      left: 0; right: 0;
+      border-top: 1px dashed rgba(128,128,128,0.15);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .schedule-cal-hour-lbl {
+      position: absolute;
+      right: 5px;
+      font-size: 9px;
+      color: var(--muted);
+      transform: translateY(-50%);
+      line-height: 1;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .schedule-block {
+      position: absolute;
+      left: 2px; right: 2px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: grab;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+      z-index: 3;
+      touch-action: none;
+      transition: box-shadow 0.1s;
+    }
+
+    .schedule-block:active { cursor: grabbing; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
+    .schedule-block-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      padding: 3px 2px;
+      width: 100%;
+      box-sizing: border-box;
+      pointer-events: none;
+    }
+
+    .schedule-block-start {
+      font-size: 9px;
+      opacity: 0.75;
+      line-height: 1;
+      align-self: flex-start;
+      padding-left: 3px;
+    }
+
+    .schedule-block.compact .schedule-block-start,
+    .schedule-block.compact .schedule-block-unit { display: none; }
+    .schedule-block.compact .schedule-block-inner { padding-top: 0; padding-bottom: 0; }
+    .schedule-block.compact input.schedule-block-temp-input { height: 22px; }
+
+    .schedule-block input.schedule-block-temp-input {
+      width: calc(100% - 4px);
+      max-width: 60px;
+      box-sizing: border-box;
+      height: 28px;
+      font-size: 16px;
+      -webkit-user-select: text;
+      user-select: text;
+      -webkit-appearance: none;
+      touch-action: manipulation;
+      font-weight: 800;
       text-align: center;
-      background: rgba(255, 255, 255, 0.02);
+      border: none;
+      background: rgba(255,255,255,0.2);
+      border-radius: 4px;
+      color: inherit;
+      padding: 1px 2px;
+      pointer-events: auto;
+      cursor: text;
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    .schedule-block input.schedule-block-temp-input::-webkit-inner-spin-button,
+    .schedule-block input.schedule-block-temp-input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .schedule-block-unit {
+      font-size: 9px;
+      opacity: 0.75;
+      line-height: 1;
+    }
+
+    .schedule-block-del {
+      position: absolute;
+      top: 2px; right: 2px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.3);
+      border: none;
+      color: #fff;
+      font-size: 11px;
+      line-height: 1;
+      cursor: pointer;
+      opacity: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      transition: opacity 0.15s;
+      z-index: 5;
+      pointer-events: auto;
+    }
+
+    .schedule-block:hover .schedule-block-del { opacity: 1; }
+    @media (hover: none) {
+      .schedule-block-del { opacity: 0.85; width: 18px; height: 18px; }
+      .schedule-block.compact .schedule-block-del { display: none; }
+    }
+
+    .schedule-block-resize {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 8px;
+      cursor: ns-resize;
+      border-radius: 0 0 6px 6px;
+      background: transparent;
+      z-index: 6;
+      pointer-events: auto;
+    }
+    .schedule-block:hover .schedule-block-resize { background: rgba(255,255,255,0.2); }
+    .schedule-block-resize:hover { background: rgba(255,255,255,0.4) !important; }
+
+    .schedule-ghost {
+      position: absolute;
+      left: 2px; right: 2px;
+      border-radius: 6px;
+      background: var(--accent);
+      opacity: 0.35;
+      pointer-events: none;
+      z-index: 4;
     }
 
     .schedule-footer {
@@ -831,6 +990,9 @@
       justify-content: space-between;
       gap: 10px;
       flex-wrap: wrap;
+      padding: 12px 18px;
+      border-top: 1px solid var(--line);
+      flex-shrink: 0;
     }
 
     .schedule-footer-left,
@@ -843,7 +1005,10 @@
     .schedule-copy-rooms-list {
       display: grid;
       gap: 10px;
-      margin-bottom: 18px;
+      padding: 0 18px 18px;
+      max-height: 55vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .schedule-copy-room {
@@ -854,31 +1019,12 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: #0f151d;
+      cursor: pointer;
     }
 
-    .schedule-copy-room input[type="checkbox"] {
-      flex: 0 0 auto;
-    }
+    .schedule-copy-room input[type="checkbox"] { flex: 0 0 auto; }
 
-    .schedule-copy-room-label {
-      font-size: 14px;
-    }
-
-    @media (max-width: 1100px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-      .sticky-col {
-        position: static;
-      }
-
-      .rooms-scroll {
-        max-height: none;
-        overflow: visible;
-        padding-right: 0;
-      }
-    }
+    .schedule-copy-room-label { font-size: 14px; }
 
     /* Live label badges */
     .label-live {
@@ -997,10 +1143,334 @@
       margin-top: 10px;
     }
 
+    /* Tile wall */
+    .tile-wall {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .tile-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 14px;
+    }
+
+    .tile {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+      min-height: 188px;
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--panel);
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.12s ease, border-color 0.12s ease;
+    }
+
+    .tile:hover {
+      transform: translateY(-2px);
+      border-color: var(--muted);
+    }
+
+    .tile:active {
+      transform: none;
+      border-color: var(--accent);
+      transition: none;
+    }
+
+    .tile:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .tile.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .tile.dragging {
+      opacity: 0.5;
+    }
+
+    .tile.heating {
+      background: linear-gradient(180deg, rgba(245, 185, 66, 0.1), var(--panel) 80%);
+      border-color: rgba(245, 185, 66, 0.42);
+    }
+
+    .tile.cooling {
+      background: linear-gradient(180deg, rgba(77, 163, 255, 0.11), var(--panel) 80%);
+      border-color: rgba(77, 163, 255, 0.45);
+    }
+
+    .tile.pause {
+      border-color: rgba(159, 176, 195, 0.45);
+    }
+
+    .tile.fault {
+      background: linear-gradient(180deg, rgba(255, 107, 107, 0.09), var(--panel) 80%);
+      border-color: rgba(255, 107, 107, 0.45);
+    }
+
+    .tile.off {
+      opacity: 0.58;
+    }
+
+    .tile.global {
+      background: var(--panel-2);
+    }
+
+    .tile.add {
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      background: transparent;
+      border-style: dashed;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .tile-add-icon {
+      font-size: 26px;
+      line-height: 1;
+    }
+
+    .tile-name {
+      font-size: 15px;
+      font-weight: 650;
+      overflow-wrap: anywhere;
+    }
+
+    .tile-reading {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .tile-temp {
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tile-temp small {
+      margin-left: 2px;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: var(--muted);
+    }
+
+    .tile-target {
+      color: var(--muted);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .tile-foot {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .tile-gauge {
+      position: relative;
+      height: 4px;
+      border-radius: 4px;
+      background: var(--line);
+    }
+
+    .tile-gauge i {
+      position: absolute;
+      top: 50%;
+      display: block;
+      transform: translate(-50%, -50%);
+    }
+
+    .tile-gauge .now {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text);
+    }
+
+    .tile-gauge .goal {
+      width: 2px;
+      height: 12px;
+      border-radius: 1px;
+      background: var(--muted);
+    }
+
+    .heating .tile-gauge .now {
+      background: var(--warning);
+    }
+
+    .cooling .tile-gauge .now {
+      background: var(--accent);
+    }
+
+    .tile-pill {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--panel-2);
+    }
+
+    .global .tile-pill {
+      background: var(--panel);
+    }
+
+    .heating .tile-pill {
+      color: var(--warning);
+      background: rgba(245, 185, 66, 0.1);
+    }
+
+    .cooling .tile-pill {
+      color: var(--accent);
+      background: rgba(77, 163, 255, 0.11);
+    }
+
+    .fault .tile-pill {
+      color: var(--danger);
+      background: rgba(255, 107, 107, 0.09);
+    }
+
+    .tile-kv {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 7px 12px;
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .tile-kv dt {
+      color: var(--muted);
+    }
+
+    .tile-kv dd {
+      margin: 0;
+      text-align: right;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+
+    /* Edit popup */
+    .edit-modal-content {
+      display: flex;
+      flex-direction: column;
+      width: min(820px, 100%);
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .edit-modal-header {
+      align-items: flex-start;
+      margin: 0;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .edit-modal-header h2 {
+      overflow-wrap: anywhere;
+    }
+
+    .edit-modal-live {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .edit-modal-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      padding: 18px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+
+    .edit-pane {
+      display: none;
+    }
+
+    .edit-pane.active {
+      display: block;
+    }
+
+    .edit-status {
+      margin: 0 18px 12px;
+    }
+
+    .edit-modal-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 14px 18px;
+      border-top: 1px solid var(--line);
+    }
+
+    .edit-question {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-weight: 600;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .tile {
+        transition: none;
+      }
+
+      .tile:hover {
+        transform: none;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .tile-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .tile {
+        min-height: 172px;
+        padding: 13px;
+      }
+
+      .tile-temp {
+        font-size: 30px;
+      }
+
+      #edit-modal {
+        padding: 0;
+      }
+
+      .edit-modal-content {
+        width: 100%;
+        height: 100%;
+        max-height: none;
+        border: 0;
+        border-radius: 0;
+      }
+    }
+
     @media (max-width: 700px) {
       .fields,
-      .room-grid,
-      .schedule-entry {
+      .room-grid {
         grid-template-columns: 1fr;
       }
 
@@ -1030,7 +1500,7 @@
       <div class="title-block">
         <h1 data-i18n="title">Smartdome Heat Control</h1>
         <p data-i18n="subtitle">
-          Haupteinstellungen links, Räume rechts. Räume können unabhängig eigene Zeiten bekommen.
+          Tippe auf eine Kachel, um den Raum oder die globalen Einstellungen zu bearbeiten.
         </p>
         <div class="version-badge" id="versionBadge">Version</div>
       </div>
@@ -1045,9 +1515,6 @@
         <button id="reloadConfigBtn" class="ghost" data-i18n="reload_config">
           Neu laden
         </button>
-        <button id="saveBtn" class="primary" data-i18n="save_config">
-          Konfiguration speichern
-        </button>
       </div>
     </div>
 
@@ -1055,10 +1522,29 @@
       Lade Konfiguration …
     </div>
 
-    <div class="layout">
-      <div class="sticky-col">
-        <section class="card">
-          <h2 data-i18n="global_settings">Globale Einstellungen</h2>
+    <div id="tileWall" class="tile-wall"></div>
+  </div>
+
+  <!-- Vor den anderen Dialogen, damit Wochenplan und Entity-Auswahl darüber liegen. -->
+  <div id="edit-modal" class="modal hidden">
+    <div
+      id="edit-modal-content"
+      class="modal-content edit-modal-content"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="edit-modal-title"
+      tabindex="-1"
+    >
+      <div class="modal-header edit-modal-header">
+        <div>
+          <h2 id="edit-modal-title"></h2>
+          <div id="edit-modal-live" class="edit-modal-live"></div>
+        </div>
+        <button id="edit-modal-close" type="button" class="ghost">✕</button>
+      </div>
+
+      <div id="edit-modal-body" class="edit-modal-body">
+        <section id="globalForm" class="edit-pane">
 
           <!-- Steuerung -->
           <div class="settings-group">
@@ -1122,6 +1608,28 @@
                 <input id="outdoor_temp_cutoff_enabled" type="checkbox" />
               </div>
             </div>
+            <div class="toggle" style="margin-top:10px;">
+              <div class="toggle-text">
+                <strong data-i18n="outdoor_cutoff_hysteresis">Hysterese (°C)</strong>
+                <span data-i18n="outdoor_cutoff_hysteresis_hint">
+                  Die Sperre wird erst wieder aufgehoben, wenn die Außentemperatur unter Schwellenwert − Hysterese fällt.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="outdoor_cutoff_hysteresis" class="toggle-temp" type="number" min="0" max="5" step="0.5" value="2" />
+              </div>
+            </div>
+            <div class="toggle" style="margin-top:10px;">
+              <div class="toggle-text">
+                <strong data-i18n="outdoor_min_room_temperature">Mindest-Raumtemperatur (°C)</strong>
+                <span data-i18n="outdoor_min_room_temperature_hint">
+                  Während der Sperre wird nur noch bis zu dieser Temperatur geheizt. 0 = Heizung komplett gesperrt.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="outdoor_min_room_temperature" class="toggle-temp" type="number" min="0" max="25" step="0.5" value="0" />
+              </div>
+            </div>
           </div>
 
           <!-- Kühlen -->
@@ -1183,6 +1691,21 @@
                   <span id="global_sensor_live" class="label-live"></span>
                 </label>
                 <div id="main_sensor_picker"></div>
+              </div>
+              <div class="field" id="main_idle_temperature_field">
+                <label for="main_idle_temperature" data-i18n="main_idle_temperature">Temperatur ohne Heizbedarf (°C)</label>
+                <input
+                  id="main_idle_temperature"
+                  type="number"
+                  min="5"
+                  max="30"
+                  step="0.5"
+                  placeholder="Auto"
+                  data-i18n-placeholder="idle_temperature_placeholder"
+                />
+                <div class="footer-note" style="margin-top:6px;" data-i18n="idle_temperature_hint">
+                  Leer lassen: Mindesttemperatur des Thermostats.
+                </div>
               </div>
             </div>
           </div>
@@ -1341,78 +1864,60 @@
             </button>
           </div>
         </section>
+
+        <section class="card" id="windowStatsCard">
+          <h2 data-i18n="window_stats_title">Fensterpausen &amp; Gas-Ersparnis</h2>
+          <div id="windowStatsBody" class="window-stats"></div>
+        </section>
+
+        <div id="roomsContainer" class="rooms"></div>
       </div>
 
-      <section class="card" id="windowStatsCard">
-        <h2 data-i18n="window_stats_title">Fensterpausen &amp; Gas-Ersparnis</h2>
-        <div id="windowStatsBody" class="window-stats"></div>
-      </section>
+      <div id="edit-status" class="status edit-status hidden" role="status"></div>
 
-      <section class="card rooms-card">
-        <div class="rooms-header">
-          <div>
-            <h2 data-i18n="rooms_title">Räume</h2>
-          </div>
-
-          <button id="addRoomBtn" class="success" data-i18n="add_room">
-            Raum hinzufügen
-          </button>
-        </div>
-
-        <div class="rooms-scroll">
-          <div id="roomsContainer" class="rooms"></div>
-        </div>
-      </section>
+      <div class="edit-modal-footer">
+        <button id="edit-delete" type="button" class="danger" data-i18n="edit_delete">Löschen</button>
+        <span id="edit-question" class="edit-question"></span>
+        <button id="edit-cancel" type="button" class="ghost" data-i18n="edit_cancel">Abbrechen</button>
+        <button id="edit-confirm" type="button" class="danger hidden"></button>
+        <button id="saveBtn" type="button" class="primary" data-i18n="save_config">Speichern</button>
+      </div>
     </div>
   </div>
 
   <div id="schedule-modal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="schedule-modal-title">Weekly Schedule</h2>
+    <div class="modal-content" style="width:min(920px,98vw);height:min(780px,96vh);display:flex;flex-direction:column;gap:0;padding:0;">
+      <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0;">
+        <h2 id="schedule-modal-title">Wochenschema</h2>
         <button id="schedule-close" type="button" class="ghost">✕</button>
       </div>
-
-      <div class="schedule-days">
-        <button type="button" data-day="monday">Mon</button>
-        <button type="button" data-day="tuesday">Tue</button>
-        <button type="button" data-day="wednesday">Wed</button>
-        <button type="button" data-day="thursday">Thu</button>
-        <button type="button" data-day="friday">Fri</button>
-        <button type="button" data-day="saturday">Sat</button>
-        <button type="button" data-day="sunday">Sun</button>
+      <div class="schedule-calendar-wrap">
+        <div class="schedule-calendar" id="schedule-calendar"></div>
       </div>
-
-      <div id="schedule-entries" class="schedule-entries"></div>
-
       <div class="schedule-footer">
         <div class="schedule-footer-left">
-          <button id="schedule-add" type="button" class="ghost">Add time block</button>
-          <button id="schedule-copy-days" type="button" class="ghost">Copy to other days</button>
-          <button id="schedule-copy-rooms" type="button" class="ghost">Copy to other rooms</button>
+          <button id="schedule-copy-rooms" type="button" class="ghost">Auf andere Räume kopieren</button>
         </div>
         <div class="schedule-footer-right">
-          <button id="schedule-cancel" type="button" class="ghost">Cancel</button>
-          <button id="schedule-save" type="button" class="primary">Save</button>
+          <button id="schedule-cancel" type="button" class="ghost">Abbrechen</button>
+          <button id="schedule-save" type="button" class="primary">Speichern</button>
         </div>
       </div>
     </div>
   </div>
 
   <div id="schedule-copy-modal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="schedule-copy-title">Copy weekly schedule</h2>
+    <div class="modal-content" style="display:flex;flex-direction:column;gap:0;padding:0;max-height:min(560px,92vh);">
+      <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--line);flex-shrink:0;">
+        <h2 id="schedule-copy-title">Wochenschema kopieren</h2>
         <button id="schedule-copy-close" type="button" class="ghost">✕</button>
       </div>
-
-      <div id="schedule-copy-rooms-list" class="schedule-copy-rooms-list"></div>
-
+      <div id="schedule-copy-rooms-list" class="schedule-copy-rooms-list" style="padding-top:14px;"></div>
       <div class="schedule-footer">
         <div class="schedule-footer-left"></div>
         <div class="schedule-footer-right">
-          <button id="schedule-copy-cancel" type="button" class="ghost">Cancel</button>
-          <button id="schedule-copy-apply" type="button" class="primary">Apply</button>
+          <button id="schedule-copy-cancel" type="button" class="ghost">Abbrechen</button>
+          <button id="schedule-copy-apply" type="button" class="primary">Übernehmen</button>
         </div>
       </div>
     </div>
@@ -1457,10 +1962,11 @@
             <p>Nach der Installation über HACS erscheint die Integration unter <strong>Einstellungen → Integrationen</strong>. Füge sie dort hinzu — danach öffnet sich dieses Panel automatisch.</p>
             <ul>
               <li><strong>Steuerung aktiv</strong> muss eingeschaltet sein, damit die Integration Thermostate steuert.</li>
-              <li>Lege über <strong>Raum hinzufügen</strong> deine Räume an oder erkenne vorhandene über <strong>Räume neu erkennen</strong>.</li>
-              <li>Klicke auf <strong>Konfiguration speichern</strong> um alle Änderungen zu übernehmen.</li>
+              <li>Lege über die Kachel <strong>Raum hinzufügen</strong> deine Räume an oder erkenne vorhandene über <strong>Räume neu erkennen</strong>.</li>
+              <li>Ein Klick auf eine Kachel öffnet ihre Einstellungen. <strong>Speichern</strong> übernimmt die Änderungen sofort.</li>
+              <li>Die Reihenfolge änderst du, indem du eine Raumkachel auf eine andere ziehst.</li>
             </ul>
-            <div class="help-tip">💡 Änderungen werden erst wirksam nachdem du gespeichert hast.</div>
+            <div class="help-tip">💡 Änderungen werden erst wirksam, wenn du im Popup auf Speichern klickst.</div>
           </div>
 
           <div class="help-section">
@@ -1540,8 +2046,7 @@
               <li><strong>Steuerung aktiv aus:</strong> Die Integration schreibt keinerlei Sollwerte auf Thermostate — sie greift komplett nicht ein.</li>
               <li><strong>climate-Entity als Sensor:</strong> Trage eine climate-Entity als Temperatursensor ein — die Integration liest automatisch das Attribut <code>current_temperature</code> aus.</li>
               <li><strong>Mehrere Fensterkontakte:</strong> Pro Raum können beliebig viele Sensoren hinzugefügt werden. Es reicht wenn <em>einer</em> offen ist um die Heizung zu pausieren.</li>
-              <li><strong>Räume verschwinden nach Reload:</strong> Nutze <em>Konfiguration speichern</em> bevor du <em>Neu laden</em> klickst — sonst gehen ungespeicherte Änderungen verloren.</li>
-              <li><strong>HACS-Update erscheint nicht:</strong> Stelle sicher dass die Versionsnummer in <code>manifest.json</code> mit dem GitHub-Release-Tag übereinstimmt.</li>
+                            <li><strong>HACS-Update erscheint nicht:</strong> Stelle sicher dass die Versionsnummer in <code>manifest.json</code> mit dem GitHub-Release-Tag übereinstimmt.</li>
             </ul>
           </div>
 
@@ -1555,10 +2060,11 @@
             <p>After installing via HACS, the integration appears under <strong>Settings → Integrations</strong>. Add it there — this panel will open automatically.</p>
             <ul>
               <li><strong>Control enabled</strong> must be switched on for the integration to control thermostats.</li>
-              <li>Add rooms using <strong>Add room</strong> or discover existing areas via <strong>Reload rooms</strong>.</li>
-              <li>Click <strong>Save configuration</strong> to apply all changes.</li>
+              <li>Add rooms using the <strong>Add room</strong> tile or discover existing areas via <strong>Reload rooms</strong>.</li>
+              <li>Clicking a tile opens its settings. <strong>Save</strong> applies the changes right away.</li>
+              <li>To change the order, drag one room tile onto another.</li>
             </ul>
-            <div class="help-tip">💡 Changes only take effect after you save.</div>
+            <div class="help-tip">💡 Changes only take effect when you click Save in the popup.</div>
           </div>
 
           <div class="help-section">
@@ -1638,8 +2144,7 @@
               <li><strong>Control disabled:</strong> The integration writes no setpoints to any thermostat — it does not intervene at all.</li>
               <li><strong>Climate entity as sensor:</strong> Enter a climate entity as the temperature sensor — the integration automatically reads its <code>current_temperature</code> attribute.</li>
               <li><strong>Multiple window sensors:</strong> Add as many sensors as you like per room. It only takes <em>one</em> to be open to pause heating.</li>
-              <li><strong>Rooms disappear after reload:</strong> Use <em>Save configuration</em> before clicking <em>Reload</em> — unsaved changes are lost otherwise.</li>
-              <li><strong>HACS update not showing:</strong> Make sure the version in <code>manifest.json</code> matches the GitHub release tag exactly.</li>
+                            <li><strong>HACS update not showing:</strong> Make sure the version in <code>manifest.json</code> matches the GitHub release tag exactly.</li>
             </ul>
           </div>
 

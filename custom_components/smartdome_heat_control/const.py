@@ -21,12 +21,15 @@ SERVICE_RELOAD = "reload"
 # Globale Config-Keys
 CONF_MAIN_THERMOSTAT = "main_thermostat"
 CONF_MAIN_SENSOR = "main_sensor"
+# Sollwert des Hauptthermostats ohne Wärmebedarf; None = Mindesttemperatur des Geräts.
+CONF_MAIN_IDLE_TEMPERATURE = "main_idle_temperature"
 
 # Heizkreise
 CONF_CIRCUITS = "circuits"
 CONF_CIRCUIT_LABEL = "label"
 CONF_CIRCUIT_MAIN_THERMOSTAT = "main_thermostat"
 CONF_CIRCUIT_MAIN_SENSOR = "main_sensor"
+CONF_CIRCUIT_IDLE_TEMPERATURE = "idle_temperature"
 CONF_CIRCUIT_ENABLED = "enabled"
 CONF_ROOM_CIRCUIT_ID = "circuit_id"
 CONF_BOOST_DELTA = "boost_delta"
@@ -152,8 +155,9 @@ DEFAULT_OUTDOOR_TEMP_CUTOFF_ENABLED = False
 DEFAULT_OUTDOOR_TEMP_CUTOFF = 15.0
 CONF_OUTDOOR_CUTOFF_HYSTERESIS = "outdoor_cutoff_hysteresis"
 DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS = 2.0
+# Mindest-Raumtemperatur während der Außensperre; 0 = aus (Heizung ganz gesperrt)
 CONF_OUTDOOR_MIN_ROOM_TEMPERATURE = "outdoor_min_room_temperature"
-DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE = 19.0
+DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE = 0.0
 
 # Feature #54 – Globale Temperatureinstellungen
 CONF_GLOBAL_TARGET_DAY = "global_target_day"
@@ -177,9 +181,30 @@ CONF_ROOM_USE_CLIMATE = "use_climate"
 CONF_ROOM_EXTRA_THERMOSTATS = "extra_thermostats"
 DEFAULT_ROOM_EXTRA_THERMOSTATS: list[str] = []
 
+# Feature #77 – Schalter-Aktoren pro Raum (z.B. Shelly-Relais für Fußbodenheizung)
+CONF_ROOM_SWITCH_ACTUATORS = "switch_actuators"
+CONF_ROOM_HYSTERESIS = "hysteresis"
+CONF_ROOM_SWITCH_MIN_ON = "switch_min_on"
+CONF_ROOM_SWITCH_MIN_OFF = "switch_min_off"
+DEFAULT_ROOM_SWITCH_ACTUATORS: list[str] = []
+DEFAULT_ROOM_HYSTERESIS = None  # None = globale Toleranz verwenden
+DEFAULT_ROOM_SWITCH_MIN_ON = 5  # Minuten
+DEFAULT_ROOM_SWITCH_MIN_OFF = 5  # Minuten
+SWITCH_ACTUATOR_DOMAINS = ("switch", "input_boolean")
+
 # Feature – Away-Modus pro Raum
 CONF_ROOM_AWAY_ENABLED = "room_away_enabled"
 DEFAULT_ROOM_AWAY_ENABLED = False
+
+# Feature – Sollwert-Abgleich pro Raum (opt-in)
+# Prüft, ob das Thermostat den gesendeten Sollwert übernommen hat, und sendet
+# bei Abweichung begrenzt erneut. Begrenzende Ventile (z. B. max. 28 °C) werden
+# erkannt; manuelle Änderungen am Ventil werden nicht überschrieben.
+CONF_ROOM_TARGET_RECONCILE_ENABLED = "room_target_reconcile_enabled"
+DEFAULT_ROOM_TARGET_RECONCILE_ENABLED = False
+RECONCILE_TOLERANCE = 0.5  # °C
+RECONCILE_RETRY_INTERVAL = 600  # s zwischen Wiederholungen
+RECONCILE_MAX_ATTEMPTS = 2  # danach gilt das Ventil als begrenzend
 
 # Feature #70 – Kühlen
 CONF_COOLING_ENABLED = "cooling_enabled"
@@ -194,15 +219,21 @@ CONF_ROOM_COOL_TARGET_NIGHT = "cool_target_night"
 CONF_ROOM_CLIMATE_FAN_MODE = "climate_fan_mode"
 CONF_ROOM_CLIMATE_PRESET = "climate_preset"
 CONF_ROOM_CLIMATE_HVAC_MODE = "climate_hvac_mode"
+CONF_ROOM_CLIMATE_HEAT_BOOST = "climate_heat_boost"
 DEFAULT_ROOM_COOL_TARGET_DAY = 23.0
 DEFAULT_ROOM_COOL_TARGET_NIGHT = 24.0
 DEFAULT_ROOM_CLIMATE_FAN_MODE = "auto"
 DEFAULT_ROOM_CLIMATE_PRESET = ""
 DEFAULT_ROOM_CLIMATE_HVAC_MODE = "cool"
+DEFAULT_ROOM_CLIMATE_HEAT_BOOST = False
 
 # Defaults
 DEFAULT_ENABLED = True
 DEFAULT_BOOST_DELTA = 2.0
+# Mindestabstand des Hauptthermostat-Sollwerts über dessen eigener Temperatur bei Wärmebedarf
+MIN_MAIN_BOOST_DELTA = 2.0
+# Verliert das Hauptthermostat den gesendeten Sollwert, frühestens nach so vielen Sekunden erneut senden
+MAIN_RESEND_INTERVAL = 300
 DEFAULT_TOLERANCE = 0.5
 DEFAULT_NIGHT_START = "22:00"
 DEFAULT_MORNING_BOOST_START = "05:00"
