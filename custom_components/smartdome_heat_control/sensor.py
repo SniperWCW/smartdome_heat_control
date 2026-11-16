@@ -113,6 +113,11 @@ class SmartdomeRoomStatusSensor(SensorEntity):
             "window_pause_active": status.get("window_pause_active", False),
             "thermostats": status.get("thermostats", []),
             **self._window_stats_attributes(controller),
+            "comfort_override_active": status.get("comfort_override_active", False),
+            "comfort_override_target": status.get("comfort_override_target"),
+            "comfort_override_remaining_seconds": status.get(
+                "comfort_override_remaining_seconds", 0
+            ),
         }
 
     def _window_stats_attributes(self, controller: Any) -> dict[str, Any]:

@@ -23,6 +23,13 @@ from .const import (
     CONF_AWAY_ENABLED,
     CONF_ROOM_AWAY_ENABLED,
     CONF_ROOM_TARGET_RECONCILE_ENABLED,
+    CONF_ROOM_COMFORT_OVERRIDE_ENABLED,
+    COMFORT_OVERRIDE_CONFIG_GRACE,
+    COMFORT_OVERRIDE_DURATION_SECONDS,
+    COMFORT_OVERRIDE_MIN_DELTA,
+    COMFORT_OVERRIDE_OWN_VALUE_TOLERANCE,
+    COMFORT_OVERRIDE_OWN_VALUE_WINDOW,
+    COMFORT_OVERRIDE_WINDOW_GRACE,
     CONF_ROOM_EXTRA_THERMOSTATS,
     CONF_ROOM_HYSTERESIS,
     CONF_ROOM_SWITCH_ACTUATORS,
@@ -30,6 +37,7 @@ from .const import (
     CONF_ROOM_SWITCH_MIN_ON,
     DEFAULT_ROOM_AWAY_ENABLED,
     DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
+    DEFAULT_ROOM_COMFORT_OVERRIDE_ENABLED,
     DEFAULT_ROOM_EXTRA_THERMOSTATS,
     RECONCILE_MAX_ATTEMPTS,
     RECONCILE_RETRY_INTERVAL,
@@ -246,6 +254,18 @@ class SmartHeatingController:
 
         # Sollwert-Abgleich pro Thermostat (nur Räume mit aktivierter Option)
         self._reconcile: dict[str, dict[str, Any]] = {}
+        # Komfort-Override pro Raum (nur Räume mit aktivierter Option):
+        # room_id -> (Solltemperatur, Ablaufzeitpunkt). Wird nie persistiert und
+        # verändert weder Tag/Nacht-Werte noch Wochenplan.
+        self._comfort_override: dict[str, tuple[float, float]] = {}
+        # Zuletzt von der Integration gesendete Werte pro Thermostat
+        # (Wert, Zeitstempel), damit verzögerte Bestätigungen eigener Befehle
+        # nicht als Benutzereingriff gelten.
+        self._recent_sent_targets: dict[str, list[tuple[float, float]]] = {}
+        # Zeitpunkt der letzten Config-Änderung (Panel-Speichern)
+        self._config_changed_at: float = 0.0
+        # Letzter Zeitpunkt mit offenem Fenster / aktiver Pause pro Raum
+        self._window_last_active: dict[str, float] = {}
 
         self._apply_config_defaults()
 
@@ -292,7 +312,11 @@ class SmartHeatingController:
 
             # Bei selbst regelnden Räumen auch die Thermostate beobachten,
             # damit _evaluate() greift sobald die CCU den State bestätigt.
-            if self._is_self_regulating_room(room) or self._reconcile_enabled(room):
+            if (
+                self._is_self_regulating_room(room)
+                or self._reconcile_enabled(room)
+                or self._comfort_override_enabled(room)
+            ):
                 for thermostat in self._room_thermostats(room):
                     watch_entities.add(thermostat)
 
@@ -342,6 +366,7 @@ class SmartHeatingController:
             config.get("enabled"),
         )
         self.config = config
+        self._config_changed_at = dt_util.now().timestamp()
         self._apply_config_defaults()
         # Speichern setzt nur gesendete Befehle zurück, damit die neue Config
         # sofort greift. Heizzustand und Fensterpause der Räume bleiben erhalten.
@@ -399,6 +424,10 @@ class SmartHeatingController:
                     room.setdefault(
                         CONF_ROOM_TARGET_RECONCILE_ENABLED,
                         DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
+                    )
+                    room.setdefault(
+                        CONF_ROOM_COMFORT_OVERRIDE_ENABLED,
+                        DEFAULT_ROOM_COMFORT_OVERRIDE_ENABLED,
                     )
                     room.setdefault(
                         CONF_ROOM_CONTROL_PROFILE,
@@ -576,6 +605,9 @@ class SmartHeatingController:
         )
 
         window_open = self._is_window_open(room)
+
+        if window_open or room_id in self._window_paused_rooms:
+            self._window_last_active[room_id] = now
 
         if window_open:
             self._window_closed_since.pop(room_id, None)
@@ -778,12 +810,15 @@ class SmartHeatingController:
             "state", self._room_state.get(room_id, ROOM_STATE_IDLE)
         )
 
+        comfort_target = self._active_comfort_target(room_id, room)
         if not enabled:
             reason = "disabled"
         elif room_id in self._room_sensor_fault:
             reason = "sensor_fault"
         elif last_state.get("pause_active"):
             reason = "window_pause"
+        elif comfort_target is not None:
+            reason = "comfort_override"
         elif last_state.get("outdoor_cutoff_active"):
             reason = (
                 "minimum_temperature_heating"
@@ -812,6 +847,18 @@ class SmartHeatingController:
             "window_open": self._is_window_open(room),
             "window_pause_active": bool(last_state.get("pause_active")),
             "thermostats": self._room_thermostats(room),
+            "comfort_override_active": comfort_target is not None,
+            "comfort_override_target": comfort_target,
+            "comfort_override_remaining_seconds": (
+                max(
+                    0,
+                    round(
+                        self._comfort_override[room_id][1] - dt_util.now().timestamp()
+                    ),
+                )
+                if comfort_target is not None
+                else 0
+            ),
         }
 
     def get_panel_room_status(self) -> dict[str, dict[str, Any]]:
@@ -1115,6 +1162,7 @@ class SmartHeatingController:
 
         self._desired_targets[entity_id] = desired
         self._last_command_sent_at[entity_id] = now_ts
+        self._remember_sent_target(entity_id, desired, now_ts)
 
         self.hass.async_create_task(
             self.hass.services.async_call(
@@ -1229,6 +1277,159 @@ class SmartHeatingController:
                 blocking=True,
             )
         )
+
+    # --- Komfort-Override (opt-in pro Raum) -------------------------------
+
+    def _comfort_override_enabled(self, room: dict[str, Any]) -> bool:
+        return bool(
+            room.get(
+                CONF_ROOM_COMFORT_OVERRIDE_ENABLED,
+                DEFAULT_ROOM_COMFORT_OVERRIDE_ENABLED,
+            )
+        )
+
+    def _remember_sent_target(self, entity_id: str, value: float, now_ts: float) -> None:
+        """Gesendeten Wert merken (für Erkennung eigener Befehle)."""
+        history = [
+            (v, ts)
+            for v, ts in self._recent_sent_targets.get(entity_id, [])
+            if now_ts - ts <= COMFORT_OVERRIDE_OWN_VALUE_WINDOW
+        ]
+        history.append((value, now_ts))
+        self._recent_sent_targets[entity_id] = history[-12:]
+
+    def _is_own_recent_value(self, entity_id: str, value: float, now_ts: float) -> bool:
+        for sent, ts in self._recent_sent_targets.get(entity_id, []):
+            if (
+                now_ts - ts <= COMFORT_OVERRIDE_OWN_VALUE_WINDOW
+                and abs(sent - value) <= COMFORT_OVERRIDE_OWN_VALUE_TOLERANCE
+            ):
+                return True
+        return False
+
+    def _planned_target_for_room(self, room: dict[str, Any]) -> float:
+        """Geplanter Sollwert ohne Komfort-Override."""
+        return self._effective_target_for_room(room)
+
+    def set_comfort_override(self, room_id: str, temperature: float) -> bool:
+        """Zeitlich begrenzte Komfortanforderung für einen Raum setzen.
+
+        Gibt False zurück, wenn der Raum die Option nicht aktiviert hat oder der
+        Urlaubsmodus aktiv ist. Entspricht der Wert dem geplanten Sollwert, wird
+        ein laufender Override beendet.
+        """
+        room = self._active_rooms().get(room_id)
+        if room is None or not self._comfort_override_enabled(room):
+            return False
+        if bool(self.config.get(CONF_VACATION_ENABLED, DEFAULT_VACATION_ENABLED)):
+            return False
+        requested = min(30.0, max(5.0, float(temperature)))
+        if abs(requested - self._planned_target_for_room(room)) < 0.01:
+            self._comfort_override.pop(room_id, None)
+        else:
+            expires = dt_util.now().timestamp() + COMFORT_OVERRIDE_DURATION_SECONDS
+            self._comfort_override[room_id] = (requested, expires)
+        self._evaluate()
+        return True
+
+    def clear_comfort_override(self, room_id: str) -> None:
+        if self._comfort_override.pop(room_id, None) is not None:
+            self._evaluate()
+
+    def _active_comfort_target(
+        self, room_id: str, room: dict[str, Any] | None = None
+    ) -> float | None:
+        """Aktiven Override-Sollwert liefern oder None (räumt Ungültiges auf)."""
+        entry = self._comfort_override.get(room_id)
+        if entry is None:
+            return None
+        if room is None:
+            room = self._active_rooms().get(room_id)
+        target, expires = entry
+        invalid = (
+            room is None
+            or not self._comfort_override_enabled(room)
+            or bool(self.config.get(CONF_VACATION_ENABLED, DEFAULT_VACATION_ENABLED))
+            or room_id in self._window_paused_rooms
+            or dt_util.now().timestamp() >= expires
+        )
+        if invalid:
+            self._comfort_override.pop(room_id, None)
+            return None
+        return target
+
+    def get_room_target_temperature(self, room_id: str) -> float | None:
+        """Wirksamer Sollwert inkl. Override (für Climate-Entity)."""
+        room = self.config.get(CONF_ROOMS, {}).get(room_id)
+        if not isinstance(room, dict):
+            return None
+        override = self._active_comfort_target(room_id, room)
+        if override is not None:
+            return override
+        return self._effective_target_for_room(room)
+
+    def _detect_comfort_override(
+        self, entity_id: str, old_target: float, new_target: float
+    ) -> bool:
+        """Prüfen, ob eine Sollwert-Anhebung am Thermostat ein echter
+        Benutzereingriff ist, und ggf. einen Override setzen.
+
+        Bewusst konservativ, um Fehlauslöser zu vermeiden:
+        - nur Räume mit aktivierter Option, Anhebung >= 0,5 °C
+        - keine eigenen (auch verzögert bestätigten) Werte
+        - nicht kurz nach Fenster-offen/-Pause (Ventil stellt Sollwert selbst
+          wieder her) und nicht kurz nach einer Config-Änderung im Panel
+        - Wert muss über dem geplanten Sollwert liegen
+        - die Anhebung muss von dem Wert ausgehen, den wir zuletzt gesendet haben.
+          Stellt ein Ventil nach seiner eigenen Fenster-offen-Erkennung einen
+          früheren Sollwert wieder her, kommt die Änderung von einem abgesenkten
+          Wert und zählt nicht als Benutzereingriff.
+        """
+        if new_target - old_target < COMFORT_OVERRIDE_MIN_DELTA:
+            return False
+        desired = self._desired_targets.get(entity_id)
+        if desired is None or abs(old_target - desired) > COMFORT_OVERRIDE_OWN_VALUE_TOLERANCE:
+            return False
+        now_ts = dt_util.now().timestamp()
+        if now_ts - self._config_changed_at < COMFORT_OVERRIDE_CONFIG_GRACE:
+            return False
+        if now_ts - self._last_command_sent_at.get(entity_id, 0.0) <= 120:
+            return False
+        if self._is_own_recent_value(entity_id, new_target, now_ts):
+            return False
+        if bool(self.config.get(CONF_VACATION_ENABLED, DEFAULT_VACATION_ENABLED)):
+            return False
+
+        for room_id, room in self._active_rooms().items():
+            if entity_id not in self._room_thermostats(room):
+                continue
+            if not self._comfort_override_enabled(room):
+                return False
+            if room_id in self._room_sensor_fault or self._room_temp(room) is None:
+                return False
+            if (
+                self._is_window_open(room)
+                or room_id in self._window_paused_rooms
+                or now_ts - self._window_last_active.get(room_id, 0.0)
+                < COMFORT_OVERRIDE_WINDOW_GRACE
+            ):
+                return False
+            planned = self._planned_target_for_room(room)
+            if new_target <= planned + COMFORT_OVERRIDE_OWN_VALUE_TOLERANCE:
+                return False
+            actual = self._room_temp(room)
+            if actual is not None and actual >= new_target:
+                return False
+            if self.set_comfort_override(room_id, new_target):
+                _LOGGER.info(
+                    "Komfort-Override in %s: %.1f °C für %d Minuten",
+                    room_id,
+                    new_target,
+                    COMFORT_OVERRIDE_DURATION_SECONDS // 60,
+                )
+                return True
+            return False
+        return False
 
     def _turn_switch_if_needed(self, entity_id: str, turn_on: bool) -> None:
         """Switch ein- oder ausschalten, aber nur wenn sich der Zustand ändert."""
@@ -1499,6 +1700,7 @@ class SmartHeatingController:
         self._last_preset_mode.clear()
         self._switch_command_sent_at.clear()
         self._reconcile.clear()
+        self._recent_sent_targets.clear()
 
     def _forget_stale_room_states(self) -> None:
         """Zustände von Räumen löschen, die so nicht mehr geregelt werden."""
@@ -1822,6 +2024,12 @@ class SmartHeatingController:
         for room_id, room in rooms.items():
             actual = self._room_temp(room)
             target = self._effective_target_for_room(room)
+            # Zeitlich begrenzte Komfortanforderung (nur Räume mit aktivierter
+            # Option) ersetzt den geplanten Sollwert und umgeht bewusst die
+            # Außensperren-Mindesttemperatur; sie läuft nach 60 min ab.
+            comfort_target = self._active_comfort_target(room_id, room)
+            if comfort_target is not None:
+                target = comfort_target
             pause_active = self._window_pause_active(room_id, room)
             mode = self._get_room_heating_mode(room)
             room_tolerance = self._room_tolerance(room, tolerance)
@@ -1836,9 +2044,15 @@ class SmartHeatingController:
             # reduzierten Temperatur geregelt. Die Zustandsmaschine wird genau
             # einmal gegen den wirksamen Sollwert ausgewertet.
             control_target = (
-                min(target, outdoor_minimum) if outdoor_minimum is not None else target
+                min(target, outdoor_minimum)
+                if outdoor_minimum is not None and comfort_target is None
+                else target
             )
-            minimum_active = outdoor_minimum is not None and control_target < target
+            minimum_active = (
+                comfort_target is None
+                and outdoor_minimum is not None
+                and control_target < target
+            )
 
             state = self._update_room_state(
                 room_id=room_id,
@@ -1855,6 +2069,7 @@ class SmartHeatingController:
             if (
                 outdoor_cutoff_active
                 and outdoor_minimum is None
+                and comfort_target is None
                 and state == ROOM_STATE_HEATING
             ):
                 state = ROOM_STATE_IDLE
@@ -1864,6 +2079,7 @@ class SmartHeatingController:
                 "actual": actual,
                 "target": target,
                 "control_target": control_target,
+                "comfort_target": comfort_target,
                 "state": state,
                 "pause_active": pause_active,
                 "outdoor_cutoff_active": outdoor_cutoff_active,
@@ -2314,7 +2530,8 @@ class SmartHeatingController:
         """Bei Sensor-Änderung sofort neu bewerten.
 
         Bei Thermostaten von Räumen mit aktiviertem Sollwert-Abgleich wird
-        zusätzlich geprüft, ob der Sollwert am Gerät manuell geändert wurde.
+        zusätzlich geprüft, ob der Sollwert am Gerät manuell geändert wurde; bei
+        aktiviertem Komfort-Override zusätzlich, ob er angehoben wurde.
         """
         entity_id = event.data.get("entity_id")
         old = event.data.get("old_state")
@@ -2332,6 +2549,18 @@ class SmartHeatingController:
                 )
             ):
                 self._note_possible_manual_change(entity_id, old_target, new_target)
+            if (
+                old_target is not None
+                and new_target is not None
+                and new_target - old_target >= COMFORT_OVERRIDE_MIN_DELTA
+                and any(
+                    self._comfort_override_enabled(room)
+                    and entity_id in self._room_thermostats(room)
+                    for room in self._active_rooms().values()
+                )
+                and self._detect_comfort_override(entity_id, old_target, new_target)
+            ):
+                return  # set_comfort_override() hat bereits neu bewertet
         self._evaluate()
 
     @callback

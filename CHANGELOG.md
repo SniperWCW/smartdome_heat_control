@@ -1,5 +1,20 @@
 # Changelog
 
+## [3.14.3] – 2026-11-15
+
+### 🔧 Komfort-Override wie im bisherigen Fork-Stand (Option pro Raum)
+
+- Der zeitlich begrenzte Komfort-Override (60 Minuten) ist wieder eine **Option pro Raum** (`room_comfort_override_enabled`, Standard aus) mit der vollständigen Erkennung aus dem bisherigen Fork-Stand: Eigene Befehle und deren verzögerte Bestätigungen gelten nicht als Benutzereingriff, nach Panel-Speichern und nach einer Fensterpause gibt es eine Ruhezeit, und im Urlaubsmodus wird kein Override gesetzt.
+- Die Soll-Temperatur in der Climate-Entität des Raums setzt, wenn die Option aktiv ist, den befristeten Override statt Tag-, Nacht- oder Away-Wert zu ändern.
+- Statusattribute: `comfort_override_active`, `comfort_override_target`, `comfort_override_remaining_seconds`; Regelgrund `comfort_override`.
+- Ersetzt die vereinfachte Fassung aus 3.14.2, die den Override für alle Räume aktivierte.
+
+---
+
+**EN:** Timed comfort override is again a per-room opt-in (`room_comfort_override_enabled`, default off) with the full detection logic of the previous fork state; replaces the simplified always-on variant from 3.14.2.
+
+---
+
 ## [3.14.1] – 2026-11-15
 
 ### 🔧 „Auf andere Tage kopieren“ wieder da

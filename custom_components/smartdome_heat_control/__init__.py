@@ -67,6 +67,10 @@ from .const import (
     CONF_ROOM_EXTRA_THERMOSTATS,
     DEFAULT_ROOM_AWAY_ENABLED,
     DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
+    CONF_ROOM_COMFORT_OVERRIDE_ENABLED,
+    CONF_ROOM_EXTRA_THERMOSTATS,
+    DEFAULT_ROOM_AWAY_ENABLED,
+    DEFAULT_ROOM_COMFORT_OVERRIDE_ENABLED,
     DEFAULT_ROOM_EXTRA_THERMOSTATS,
     CONF_ROOM_HYSTERESIS,
     CONF_ROOM_SWITCH_ACTUATORS,
@@ -411,6 +415,12 @@ def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
                 room.get(
                     CONF_ROOM_TARGET_RECONCILE_ENABLED,
                     DEFAULT_ROOM_TARGET_RECONCILE_ENABLED,
+                )
+            ),
+            CONF_ROOM_COMFORT_OVERRIDE_ENABLED: bool(
+                room.get(
+                    CONF_ROOM_COMFORT_OVERRIDE_ENABLED,
+                    DEFAULT_ROOM_COMFORT_OVERRIDE_ENABLED,
                 )
             ),
             "day_start": room.get("day_start", ""),
