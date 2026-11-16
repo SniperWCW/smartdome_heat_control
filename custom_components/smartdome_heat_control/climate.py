@@ -144,8 +144,7 @@ class SmartdomeRoomClimate(ClimateEntity):
         if controller is None or not room:
             return None
         try:
-            override = controller._active_comfort_target(self._room_id)
-            return float(override if override is not None else controller._effective_target_for_room(room))
+            return float(controller._effective_target_for_room(room))
         except (TypeError, ValueError):
             return None
 
@@ -168,11 +167,18 @@ class SmartdomeRoomClimate(ClimateEntity):
             return
 
         controller = self._get_controller()
-        if controller is None:
-            raise ServiceValidationError("Smartdome Controller nicht verfügbar.")
+        key = controller.get_room_setpoint_key(self._room_id) if controller else None
+        if key is None:
+            raise ServiceValidationError(
+                "Die Soll-Temperatur dieses Raums wird gerade durch den Urlaubsmodus "
+                "oder einen Wochenplan-Eintrag vorgegeben und kann hier nicht "
+                "geändert werden."
+            )
+
         value = min(MAX_TEMP, max(MIN_TEMP, float(temperature)))
-        # Befristeter Komfort-Override statt dauerhafter Änderung von Plänen/Konfiguration.
-        controller.set_comfort_override(self._room_id, value)
+        apply_room_config_update(
+            self.hass, self._entry, self._room_id, {key: value}
+        )
         self.async_write_ha_state()
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
